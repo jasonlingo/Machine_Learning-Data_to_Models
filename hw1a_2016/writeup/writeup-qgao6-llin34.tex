@@ -148,7 +148,7 @@ Since $P(y_{1:n}|x_{1:n},M_i) = P(\mathbf{y}|X,M_i) = \int N(\mathbf{y}|X \mathb
 \textbf{(g) Answer:}\\
 From (f), we know that\\
 $$P(\mathbf{y} | \textbf{X}, \mathcal{M}_i) = \mathcal{N}(\mathbf y | \textbf{X}{\mu_0}, \sigma^2I_n + \textbf{X}\Sigma_i\textbf{X}^T)$$
-$$=(2\pi)^{-\frac{n}{2}} |\Gamma_i|^{-1} \exp[-\frac{1}{2}(\mathbf y - \textbf{X}\mu_0)^T\Gamma_i^{-1}(\mathbf y - \textbf{X}\mu_0)]$$
+$$=(2\pi)^{-\frac{n}{2}} |\Gamma_i|^{-\frac{1}{2}} \exp[-\frac{1}{2}(\mathbf y - \textbf{X}\mu_0)^T\Gamma_i^{-1}(\mathbf y - \textbf{X}\mu_0)]$$
 where $\Gamma_i = \sigma^2I_n + \textbf{X}\Sigma_i\textbf{X}^T$\\
 
 \noindent
@@ -170,8 +170,8 @@ $$=|-\Sigma_i^{-1} - \textbf{X}^T\sigma^{-2}I_n\textbf{X}||-\Sigma_i||\sigma^2I_
 
 \noindent
 Since the posterior is proportional to the likelihood times the prior and we assume a uniform prior over the three models, we only have to compare their likelihood. In addition, to avoid the numerical problem that the high power of a number will cause the likelihood become extremely small, we instead calculated their log-likelihood as shown below:\\
-$$\log P(\textbf{y}|\textbf{X}, \mathcal{M}_i) = -\frac{n}{2} \log2\pi - \log|\Gamma_i| - \frac{1}{2}(\textbf{y} - \textbf{X}\mu_0)^T \Gamma^{-1} (\textbf{y} - \textbf{X}\mu_0)$$
-$$=-\frac{n}{2} \log2\pi - n\log\sigma^2 + \log|-\Sigma_i^{-1} - \textbf{X}^T\sigma^{-1}I_n\textbf{X}| + \log|-\Sigma_i| - \frac{1}{2}(\textbf{y} - \textbf{X}\mu_0)^T \Gamma^{-1} (\textbf{y} - \textbf{X}\mu_0)$$\\
+$$\log P(\textbf{y}|\textbf{X}, \mathcal{M}_i) = -\frac{n}{2} \log2\pi - 0.5 * \log|\Gamma_i| - \frac{1}{2}(\textbf{y} - \textbf{X}\mu_0)^T \Gamma^{-1} (\textbf{y} - \textbf{X}\mu_0)$$
+$$=-\frac{n}{2} \log2\pi - 0.5 * (n\log\sigma^2 + \log|-\Sigma_i^{-1} - \textbf{X}^T\sigma^{-1}I_n\textbf{X}| + \log|-\Sigma_i|) - \frac{1}{2}(\textbf{y} - \textbf{X}\mu_0)^T \Gamma^{-1} (\textbf{y} - \textbf{X}\mu_0)$$\\
 
 \noindent
 \begin{center}
@@ -179,14 +179,14 @@ Table 1: log-likelihood\\
 \begin{tabular}{ l c }
   model & log-likelihood \\
   \hline
-  $\mathcal{M}_0$    & -113939.236643  \\
-  $\mathcal{M}_{AB}$ & -113939.248511  \\
-  $\mathcal{M}_{CD}$ & -113939.248698
+  $\mathcal{M}_0$    & -107107.786777  \\
+  $\mathcal{M}_{AB}$ & -107107.775022  \\
+  $\mathcal{M}_{CD}$ & -107107.77521
 \end{tabular}\\
 \end{center}
 
 \noindent
-The result of log-likelihood for the three models are shown in Table 1. For choosing a model, we should pick the model with the largest log-likelihood, i.e. $\mathcal{M}_0$ in this problem.\\
+The result of log-likelihood for the three models are shown in Table 1. For choosing a model, we should pick the model with the largest log-likelihood, i.e. $\mathcal{M}_{AB}$ in this problem.\\
 
 \newpage
 \noindent

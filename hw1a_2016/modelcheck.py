@@ -40,8 +40,8 @@ def logLikelihood(X, Y, sigma, sigmaSquare, mu0):
     # likelihood = (2 * pi) ** (-dataCnt / 2.0) * det(-inv(sigma) - sigmaSquare ** (-1) * xt_times_x) ** (-1) * exp(-0.5 * y_minus_xMu.T * gammaInv * y_minus_xMu)
     # The likelihood will become too small
 
-    log_lh = (-dataCnt / 2.0 * log(2 * pi) - dataCnt * log(sigmaSquare) + log(det(-inv(sigma) - sigmaSquare ** (-1) * xt_times_x))
-              + log(det(-sigma)) -0.5 * y_minus_xMu.T * gammaInv * y_minus_xMu)
+    log_lh = (-dataCnt / 2.0 * log(2 * pi) - 0.5 * (dataCnt * log(sigmaSquare) + log(det(-inv(sigma) - sigmaSquare ** (-1) * xt_times_x))
+              + log(det(-sigma))) - 0.5 * y_minus_xMu.T * gammaInv * y_minus_xMu)
 
     return log_lh[0, 0]
 
