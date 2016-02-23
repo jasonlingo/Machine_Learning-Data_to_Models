@@ -22,6 +22,10 @@ class Node(object):
     def __eq__(self, other):
         return self.varName == other.varName
 
+    def getExps(self):
+        return [(self.varName, value) for value in self.values]
+
+    # ===== parent related methods =============
     def addParent(self, parent):
         self.parents[parent.varName] = parent
 
@@ -31,6 +35,10 @@ class Node(object):
     def hasParent(self):
         return len(self.parents) > 0
 
+    def getParents(self):
+        return self.parents.values()
+
+    # ===== child related methods ==============    
     def addChild(self, child):
         self.children[child.varName] = child
 
@@ -39,9 +47,6 @@ class Node(object):
 
     def getChildren(self):
         return self.children.values()
-
-    def getExps(self):
-        return [(self.varName, value) for value in self.values]
 
 
 class ConditionalProbTable(object):
@@ -88,6 +93,7 @@ class BayesQuery(object):
     def __init__(self, network, cpd):
         self.nodes = {}
         self.cpt = ConditionalProbTable()
+        self.jpt = {}                       # joint probability table
         self.numVar = 0                     # number of total variables
         self.prior= defaultdict(dict)
         self.parseNetwork(network)
@@ -135,12 +141,12 @@ class BayesQuery(object):
             for value in n.values:
                 self.prior[n.varName][value] = 1.0 / len(n.values)
 
-        print "-- CPT -------------"
-        self.cpt.printCPT()
-        print "-- prior -----------"
-        for n in self.prior:
-            print n, self.prior[n]
-        print "--------------------"
+        # print "-- CPT -------------"
+        # self.cpt.printCPT()
+        # print "-- prior -----------"
+        # for n in self.prior:
+        #     print n, self.prior[n]
+        # print "--------------------"
 
     def topologicalSort(self, nodeList):
         """
@@ -149,7 +155,7 @@ class BayesQuery(object):
         all node is move out of the original list.
         :param nodeList: a list of node to be sorted
         """
-        print "topologicalSort ----------"
+        # print "topologicalSort ----------"
         visited = []
         order = []
         for node in nodeList:
@@ -169,15 +175,56 @@ class BayesQuery(object):
                     self.dfs(child, visited, order)
             order.append(node)
 
+    def needMarginalProb(self, exp):
+        """ 
+        Check whether the query expression needs marginal probability.
+        return needed variables for marginal probability.
+        """
+        # print "check marginal prob", exp
+        varNames = [e[0] for e in exp]
+
+        parents = set()
+        for name in varNames:
+            for parent in self.nodes[name].getParents():
+                parents.add(parent.varName)
+        parents = list(parents)
+        return list(set(parents) - set(varNames))
+
     # ==============================================================
     # Probability calculation
     # ==============================================================
 
+    def jointMarginProb(self, exp, margin):
+        marginExp = []
+        self.generateMarginExp(margin, marginExp, 0, [])
+        prob = 0
+        for marExp in marginExp:
+            prob += self.jointProb(exp + (marExp,))
+        return prob
+
+    def generateMarginExp(self, margin, marginExp, idx, path):
+        if idx == len(margin):
+            marginExp.append(path[0])
+            return
+        node = self.nodes[margin[idx]]
+        values = node.values
+        for value in values:
+            self.generateMarginExp(margin, marginExp, idx + 1, path + [(node.varName, value)])
+
     def jointProb(self, exp):
         """ use chain rule to calculate the joint probability """
-        print "Joint prob:", exp
+        # print "Joint prob:", exp
         if len(exp) <= 1: 
             return self.marginalProb(exp)
+
+        # check whether the joint probability already exists in the joint probability table
+        if self.jpt.get(tuple(sorted(exp)), None):
+            return self.jpt[tuple(sorted(exp))]
+
+        # check whether the probability need marginal probability
+        marginParent = self.needMarginalProb(exp)
+        if marginParent:
+            return self.jointMarginProb(exp, marginParent)
 
         # topological sort, find the order for chain rule
         nodeList = [self.nodes[e[0]] for e in exp]
@@ -198,11 +245,12 @@ class BayesQuery(object):
                 prob *= self.marginalProb((exp,))
             else:
                 prob *= self.condProb((exp,), jointExp[i+1:])
+        self.jpt[tuple(sorted(exp))] = prob
         return prob
 
     def marginalProb(self, exp):
         """ Calculate marginal probability """
-        print "Get marginal", exp
+        # print "Get marginal", exp
 
         # if len(exp) > 1, it means that we want to find joint probability
         if len(exp) > 1:
@@ -222,7 +270,7 @@ class BayesQuery(object):
 
     def condProb(self, lhs, rhs):
         """ Calculate conditional probability """
-        print "condProb:", lhs, "|", rhs 
+        # print "condProb:", lhs, "|", rhs 
         prob = self.cpt.getProb(lhs, rhs)
         if prob: return prob
 
