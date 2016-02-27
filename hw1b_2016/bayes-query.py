@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 from collections import defaultdict
 import argparse
 import random
@@ -109,7 +111,7 @@ class BayesQuery(object):
         :param network: (string) the file name of a netowrk data
         """
         f = open(network, 'r')
-        data = f.readlines()
+        data = [line for line in f.readlines() if line.rstrip()]  # skip empty line
 
         self.numVar = int(data[0].strip())
 
@@ -120,11 +122,12 @@ class BayesQuery(object):
 
         # store network relationship
         for d in data[1 + self.numVar:]:
-            parent, child = [v.strip() for v in d.split("->")]
-            parentNode = self.nodes[parent]
-            childNode = self.nodes[child]
-            parentNode.addChild(childNode)
-            childNode.addParent(parentNode)
+            if d:
+                parent, child = [v.strip() for v in d.split("->")]
+                parentNode = self.nodes[parent]
+                childNode = self.nodes[child]
+                parentNode.addChild(childNode)
+                childNode.addParent(parentNode)
 
     def parseCPD(self, cpd):
         """
@@ -155,7 +158,7 @@ class BayesQuery(object):
         all node is move out of the original list.
         :param nodeList: a list of node to be sorted
         """
-        # print "topologicalSort ----------"
+        print "topologicalSort ----------"
         visited = []
         order = []
         for node in nodeList:
@@ -180,7 +183,7 @@ class BayesQuery(object):
         Check whether the query expression needs marginal probability.
         return needed variables for marginal probability.
         """
-        # print "check marginal prob", exp
+        print "check marginal prob", exp
         varNames = [e[0] for e in exp]
 
         parents = set()
@@ -195,16 +198,18 @@ class BayesQuery(object):
     # ==============================================================
 
     def jointMarginProb(self, exp, margin):
+        print "jointMarginProb", exp, margin
         marginExp = []
         self.generateMarginExp(margin, marginExp, 0, [])
         prob = 0
         for marExp in marginExp:
-            prob += self.jointProb(exp + (marExp,))
+            prob += self.jointProb(exp + tuple(marExp))
         return prob
 
     def generateMarginExp(self, margin, marginExp, idx, path):
+        # print "gen margin exp", margin, marginExp, idx, path
         if idx == len(margin):
-            marginExp.append(path[0])
+            marginExp.append(path)
             return
         node = self.nodes[margin[idx]]
         values = node.values
@@ -213,7 +218,7 @@ class BayesQuery(object):
 
     def jointProb(self, exp):
         """ use chain rule to calculate the joint probability """
-        # print "Joint prob:", exp
+        print "Joint prob:", exp
         if len(exp) <= 1: 
             return self.marginalProb(exp)
 
@@ -229,6 +234,7 @@ class BayesQuery(object):
         # topological sort, find the order for chain rule
         nodeList = [self.nodes[e[0]] for e in exp]
         order = self.topologicalSort(nodeList)
+        print "topological order:", [o.varName for o in order]
         # rebuild query expression according to the topological sort
         jointExp = []
         for node in order:
@@ -250,7 +256,7 @@ class BayesQuery(object):
 
     def marginalProb(self, exp):
         """ Calculate marginal probability """
-        # print "Get marginal", exp
+        print "Get marginal", exp
 
         # if len(exp) > 1, it means that we want to find joint probability
         if len(exp) > 1:
@@ -270,7 +276,7 @@ class BayesQuery(object):
 
     def condProb(self, lhs, rhs):
         """ Calculate conditional probability """
-        # print "condProb:", lhs, "|", rhs 
+        print "condProb:", lhs, "|", rhs
         prob = self.cpt.getProb(lhs, rhs)
         if prob: return prob
 
