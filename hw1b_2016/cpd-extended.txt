@@ -13,7 +13,7 @@ MaryGetsFlu=No CoworkerHasFlu=No,RoommateHasFlu=Yes,MaryIsVaccinated=No 0.3
 MaryGetsFlu=Yes CoworkerHasFlu=No,RoommateHasFlu=No,MaryIsVaccinated=Yes 0.1
 MaryGetsFlu=No CoworkerHasFlu=No,RoommateHasFlu=No,MaryIsVaccinated=Yes 0.9
 MaryGetsFlu=Yes CoworkerHasFlu=No,RoommateHasFlu=No,MaryIsVaccinated=No 0.3
-MaryGetsFlu=No CoworkerHasFlu=No,RoommateHasFlu=No,MaryIsVaccinated=NO 0.7
+MaryGetsFlu=No CoworkerHasFlu=No,RoommateHasFlu=No,MaryIsVaccinated=No 0.7
 RoommateHasFlu=Yes FluRate=Mild 0.3
 RoommateHasFlu=No FluRate=Mild 0.7
 RoommateHasFlu=Yes FluRate=Moderate 0.6

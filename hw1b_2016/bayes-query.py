@@ -2,7 +2,6 @@
 
 from collections import defaultdict
 import argparse
-import random
 
 
 class Node(object):
@@ -73,7 +72,7 @@ class ConditionalProbTable(object):
         lhs = tuple(sorted(lhs))
         rhs = tuple(sorted(rhs))
         dict1 = self.cpt.get(lhs, None)
-        if dict1:
+        if dict1 is not None:
             return dict1.get(rhs, None)
 
     def getSubCPT(self, lhs):
@@ -158,7 +157,7 @@ class BayesQuery(object):
         all node is move out of the original list.
         :param nodeList: a list of node to be sorted
         """
-        print "topologicalSort ----------"
+        # print "topologicalSort ----------"
         visited = []
         order = []
         for node in nodeList:
@@ -183,7 +182,7 @@ class BayesQuery(object):
         Check whether the query expression needs marginal probability.
         return needed variables for marginal probability.
         """
-        print "check marginal prob", exp
+        # print "check marginal prob", exp
         varNames = [e[0] for e in exp]
 
         parents = set()
@@ -193,12 +192,30 @@ class BayesQuery(object):
         parents = list(parents)
         return list(set(parents) - set(varNames))
 
+    def checkIndependent(self, lhs, rhs):
+        """ make the variables in left hand side only depends on their parents
+        :param lhs:
+        :param rhs:
+        :return: a new rhs condition list
+        """
+        nodes = [self.nodes[e[0]] for e in lhs]
+        parents = set()
+        for node in nodes:
+            for p in node.getParents():
+                parents.add(p)
+        parentName = [p.varName for p in parents]
+        newRhs = []
+        for exp in rhs:
+            if exp[0] in parentName:
+                newRhs.append(exp)
+        return newRhs
+
     # ==============================================================
     # Probability calculation
     # ==============================================================
 
     def jointMarginProb(self, exp, margin):
-        print "jointMarginProb", exp, margin
+        # print "jointMarginProb", exp, margin
         marginExp = []
         self.generateMarginExp(margin, marginExp, 0, [])
         prob = 0
@@ -218,7 +235,7 @@ class BayesQuery(object):
 
     def jointProb(self, exp):
         """ use chain rule to calculate the joint probability """
-        print "Joint prob:", exp
+        # print "Joint prob:", exp
         if len(exp) <= 1: 
             return self.marginalProb(exp)
 
@@ -234,7 +251,7 @@ class BayesQuery(object):
         # topological sort, find the order for chain rule
         nodeList = [self.nodes[e[0]] for e in exp]
         order = self.topologicalSort(nodeList)
-        print "topological order:", [o.varName for o in order]
+        # print "topological order:", [o.varName for o in order]
         # rebuild query expression according to the topological sort
         jointExp = []
         for node in order:
@@ -247,7 +264,8 @@ class BayesQuery(object):
         # perform chain rule to get the joint probability
         prob = 1
         for i, exp in enumerate(jointExp):
-            if i == len(jointExp) - 1:
+            node = self.nodes[exp[0]]
+            if not node.hasParent():
                 prob *= self.marginalProb((exp,))
             else:
                 prob *= self.condProb((exp,), jointExp[i+1:])
@@ -256,7 +274,7 @@ class BayesQuery(object):
 
     def marginalProb(self, exp):
         """ Calculate marginal probability """
-        print "Get marginal", exp
+        # print "Get marginal", exp
 
         # if len(exp) > 1, it means that we want to find joint probability
         if len(exp) > 1:
@@ -276,16 +294,25 @@ class BayesQuery(object):
 
     def condProb(self, lhs, rhs):
         """ Calculate conditional probability """
-        print "condProb:", lhs, "|", rhs
+        # print "condProb:", lhs, "|", rhs
+        # prob = self.cpt.getProb(lhs, rhs)
+        # if prob is not None:
+        #     return prob
+
+        # eliminate independent variables in right hand side
+        rhs = self.checkIndependent(lhs, rhs)
         prob = self.cpt.getProb(lhs, rhs)
-        if prob: return prob
+        if prob is not None:
+            return prob
 
         # conditional probability not in the CPT
-        jointP = self.jointProb(lhs + rhs)
+        print lhs + tuple(rhs)
+        jointP = self.jointProb(lhs + tuple(rhs))
         marginP = self.marginalProb(rhs)
         self.cpt.addCPD(lhs, rhs, jointP / marginP)  # now we don't need this, but this can speed up for large amount of queries
         return jointP / marginP
-        
+
+
 
 def parseQuery(query):
     """ 
