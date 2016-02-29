@@ -1,0 +1,93 @@
+\documentclass[letterpaper, 11pt]{article}
+\usepackage{latexsym}
+\usepackage{amssymb}
+\usepackage{times}
+\usepackage{amsmath,amsfonts,amsthm}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+
+\makeatletter
+\def\BState{\State\hskip-\ALG@thistlm}
+\makeatother
+
+
+\title{Machine Learning: Data to Models \\Assignment 1b: Bayesian Network}
+\author{Qun Gao, JHED ID qgao6: \\Li-Yi Lin, JHED ID: llin34}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\noindent \LARGE \textbf{2.3 Parameter Estimation [20 points]}\\
+\Large \textbf{a. [5 points]}
+\large
+
+If $X$ is binary, given its parents $Pa(X)$, we can get the parameters $\theta_{X^0|Pa(X)}$ and $\theta_{X^1|Pa(X)}$. Since $\theta_{X^0|Pa(X)} + \theta_{X^1|Pa(X)} = 1$, so we only need to estimate one of them. In this case, the parameters of this network are: $\theta_{a^0},\theta_{b^0|a^0}, \theta_{b^0|a^1}, \theta_{c^0|a^0, b^0}, \theta_{c^0|a^0, b^1}, \theta_{c^0|a^1, b^0}, \theta_{c^0|a^1, b^1}, \theta_{d^0|b^0}, \theta_{d^0|b^1}, $ \\
+$\theta_{e^0|b^0, c^0}, \theta_{e^0|b^0, c^1}, \theta_{e^0|b^1, c^0}, \theta_{e^0|b^1, c^1}$, 13 parameters in total.\\
+
+\noindent
+\large \textbf{b. [15 points]}
+
+\begin{algorithm}
+\caption{Initialization for EM algorithm}
+\begin{algorithmic}[1]
+
+\Procedure{Initialize}{}
+\State //$\mathcal{G}$: Bayesian network with nodes $X_A, X_B, X_C, X_D, X_E$
+\State //$\theta^0$: randomly set parameters in (a)
+\State//$\mathcal{D}$: Partial observed data in the Table 1 of assignment 1b handout.
+\State //$\epsilon$: convergence threshold
+\For{$i \in \{A, B, C, D, E\}$} 
+    \For{each $x_i, u_i \in Val(X_i, Pa_{X_i}^{\mathcal{G}})$}
+        \State $\bar{M}_{\theta^0}[x_i, u_i] = 0$;
+    \EndFor
+\EndFor
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+\caption{EM Algorithm for learning parameters in Bayes Network}
+\begin{algorithmic}[1]
+\Procedure{EM-algorithm}{}
+ \State INITIALIZE;
+ \State $isConverge = False;$
+ \State $\epsilon = $ one small number;
+ \State t=0;
+
+\While {$isConverge == False$}
+    \State //E-Step (Compute the expected sufficient statistics)
+    \For {$m = 1...n$} //n is sample size
+        \State Run inference on $\langle \mathcal{G}, \theta \rangle$ using evidence $o[m]$;
+        \For{$i \in \{A, B, C, D, E\}$}
+            \For{$x_i, u_i \in Val(X_i, Pa_{X_i}^\mathcal{G})$} 
+                \State $\bar{M}_{\theta^{t}}[x_i, u_i] = \bar{M}_{\theta^t}[x_i, u_i] + P(x_i, u_i \mid o[m],\theta^t)$;
+            \EndFor
+        \EndFor
+    
+    \EndFor
+
+    \State //M-Step
+    \For {$i \in \{A, B, C, D, E\}$}
+        \For {$x_i, u_i \in Val(X_i, Pa_{X_i}^\mathcal{G})$}
+            \State // $Val(X_i, Pa_{X_i}^\mathcal{G})$ finds all the parents of $X_i$ and 
+            \State // return a set of paired values $(X_i, \text{parent of } X_i)$
+            \State $\theta_{x_i \mid u_i}^{t+1} = \frac{\bar{M}_{\theta^t}[x_i, u_i]}{\bar{M}_{\theta^t}[u_i]}$
+        \EndFor
+    \EndFor
+    
+    \State //Check convergence
+    \If {the difference between every parameter at $t$ and $t+1$ $<$ $\epsilon$}
+        \State {$isConvergence = True;$}
+        \State return $\theta^{t+1}$
+    \EndIf
+    \State $t = t + 1$;
+\EndWhile
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\end{document}

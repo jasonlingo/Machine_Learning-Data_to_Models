@@ -14,7 +14,3 @@ FluRate -> CoworkerHasFlu
 RoommateHasFlu -> MaryGetsFlu
 CoworkerHasFlu -> MaryGetsFlu
 MaryIsVaccinated -> MaryGetsFlu
-
-
-
-

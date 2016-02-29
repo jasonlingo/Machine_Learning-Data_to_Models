@@ -127,6 +127,7 @@ class BayesQuery(object):
                 childNode = self.nodes[child]
                 parentNode.addChild(childNode)
                 childNode.addParent(parentNode)
+        f.close()
 
     def parseCPD(self, cpd):
         """
@@ -142,13 +143,7 @@ class BayesQuery(object):
         for n in [node for node in self.nodes.values() if not node.hasParent()]:
             for value in n.values:
                 self.prior[n.varName][value] = 1.0 / len(n.values)
-
-        # print "-- CPT -------------"
-        # self.cpt.printCPT()
-        # print "-- prior -----------"
-        # for n in self.prior:
-        #     print n, self.prior[n]
-        # print "--------------------"
+        f.close()
 
     def topologicalSort(self, nodeList):
         """
@@ -200,13 +195,18 @@ class BayesQuery(object):
         """
         nodes = [self.nodes[e[0]] for e in lhs]
         parents = set()
+        children = set()
         for node in nodes:
             for p in node.getParents():
                 parents.add(p)
+            for c in node.getChildren():
+                children.add(c)
         parentName = [p.varName for p in parents]
+        childrenName = [c.varName for c in children]
+
         newRhs = []
         for exp in rhs:
-            if exp[0] in parentName:
+            if exp[0] in parentName or exp[0] in childrenName:
                 newRhs.append(exp)
         return newRhs
 
@@ -220,7 +220,10 @@ class BayesQuery(object):
         self.generateMarginExp(margin, marginExp, 0, [])
         prob = 0
         for marExp in marginExp:
-            prob += self.jointProb(exp + tuple(marExp))
+            # print "---------------"
+            # print exp, tuple(marExp)
+            # print exp + tuple(marExp)
+            prob += self.jointProb(tuple(exp) + tuple(marExp))
         return prob
 
     def generateMarginExp(self, margin, marginExp, idx, path):
@@ -251,8 +254,8 @@ class BayesQuery(object):
         # topological sort, find the order for chain rule
         nodeList = [self.nodes[e[0]] for e in exp]
         order = self.topologicalSort(nodeList)
-        # print "topological order:", [o.varName for o in order]
-        # rebuild query expression according to the topological sort
+
+        # rebuild query expression according to the topological order
         jointExp = []
         for node in order:
             for e in exp:
@@ -270,6 +273,7 @@ class BayesQuery(object):
             else:
                 prob *= self.condProb((exp,), jointExp[i+1:])
         self.jpt[tuple(sorted(exp))] = prob
+
         return prob
 
     def marginalProb(self, exp):
@@ -295,9 +299,6 @@ class BayesQuery(object):
     def condProb(self, lhs, rhs):
         """ Calculate conditional probability """
         # print "condProb:", lhs, "|", rhs
-        # prob = self.cpt.getProb(lhs, rhs)
-        # if prob is not None:
-        #     return prob
 
         # eliminate independent variables in right hand side
         rhs = self.checkIndependent(lhs, rhs)
@@ -306,12 +307,10 @@ class BayesQuery(object):
             return prob
 
         # conditional probability not in the CPT
-        print lhs + tuple(rhs)
         jointP = self.jointProb(lhs + tuple(rhs))
         marginP = self.marginalProb(rhs)
         self.cpt.addCPD(lhs, rhs, jointP / marginP)  # now we don't need this, but this can speed up for large amount of queries
         return jointP / marginP
-
 
 
 def parseQuery(query):
@@ -338,20 +337,19 @@ if __name__=="__main__":
     lhs = parseQuery(args.lhs)
     rhs = parseQuery(args.rhs)
 
-    # print "--------------------"
-    # print "Input: left hand side:", lhs, ", right hand side:", rhs
-
     # create a BayesQuery object and parse the network and cpd file.
     bayes = BayesQuery(network, cpd)
     
     # query the probability
     if rhs:
         prob = bayes.condProb(lhs, rhs)
+        # print "p(%s | %s) = %f" % (args.lhs, args.rhs, prob)
     else:
         if len(lhs) > 1:
             prob = bayes.jointProb(lhs)
         else:
             prob = bayes.marginalProb(lhs)
+        # print "p(%s) = %f" % (args.lhs, prob)
 
     print "%.13e" % prob
 
