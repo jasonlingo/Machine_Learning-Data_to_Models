@@ -107,15 +107,15 @@ class ParameterEstimate(object):
         self.children = {}
         self.parents  = {}
         self.paramValues = {}
-        self.topologicalOrder = None
 
         # simplified counting
         self.sChildren    = {}
         self.sParents     = {}
         self.sParamValues = {}
-        self.sTopologicalOrder = None
         self.counting = {}
         self.counting = {}
+        self.maxRow = None
+        self.maxCol = None
 
     def parseNetwork(self, network):
         """
@@ -152,7 +152,6 @@ class ParameterEstimate(object):
 
             # simplified 
             parent, child = self.checkTimeTag(parent, child)
-            # print parent, child
             if parent in self.sChildren:
                 self.sChildren[parent].add(child)
             else:
@@ -162,14 +161,6 @@ class ParameterEstimate(object):
                 self.sParents[child].add(parent)
             else:
                 self.sParents[child] = set([parent])
-
-        # print "----- sParents -----"
-        # for k in self.sParents:
-        #     print k, self.sParents[k]
-        # print ""
-        # print "----- sChildren -----"
-        # for k in self.sChildren:
-        #     print k, self.sChildren[k]
 
         print "sParents ----------------------------------"
         for k in sorted(self.sParents.keys()):
@@ -181,9 +172,9 @@ class ParameterEstimate(object):
 
 
         self.sParamValues = dict.fromkeys( set(self.sParents.keys() + self.sChildren.keys()), [] )
-        print "sParamValues ---------------------------------------------------"
-        for k in sorted(self.sParamValues.keys()):
-            print k, self.sParamValues[k]
+        # print "sParamValues ---------------------------------------------------"
+        # for k in sorted(self.sParamValues.keys()):
+        #     print k, self.sParamValues[k]
 
         # store nodes' names and values
         for d in data[1 : 1 + self.numVar]:
@@ -195,10 +186,11 @@ class ParameterEstimate(object):
             # simplified
             varNames = self.findOrgVarName(varName)
             for varN in varNames:
-                self.sParamValues[varN] = values                
+                self.sParamValues[varN] = values
 
-        self.topologicalOrder = self.topologicalSort(self.paramValues, self.children)
-        self.sTopologicalOrder = self.topologicalSort(self.sParamValues, self.sChildren)
+        self.maxRow = int(max([int(x) for x in self.paramValues["PositionRow_0"]]))
+        self.maxCol = int(max([int(x) for x in self.paramValues["PositionCol_0"]]))
+
         self.counting = self.genCountingDict(self.sParamValues, self.sParents)
         for k in sorted(self.counting.keys()):
             print k, self.counting[k]
@@ -213,31 +205,14 @@ class ParameterEstimate(object):
             for p in parent:
                 val = paramValues[p]
                 combination = self.genComb(combination, p, val)
-
             for pkey in combination:
                 sortKey = tuple(sorted(pkey))
-                # count[sortKey] = 1
-
                 for val in paramValues[child]:
                     newkey = tuple(sorted(((child, val),) + sortKey))
                     count[newkey] = 1
 
         # TODO: generate time sequence
         return count 
-
-    # def isValidKey(self, child, parents):
-    #     """ check the parameters-values combination is valid """
-    #     if "T1" in child[0]:
-    #         action = self.extractParam(parents, "Action")
-    #         PositionCol = self.extractParam(parents, "PositionCol")
-    #         PositionRow = self.extractParam(parents, "PositionRow")
-    #     else:
-    #         return True
-
-    def extractParam(self, parents, keywd):
-        for p in parents:
-            if keywd in p[0]:
-                return p
 
     def genComb(self, combination, p, val):
         res = []
@@ -251,52 +226,94 @@ class ParameterEstimate(object):
         return res
 
     def findOrgVarName(self, varName):
-        return [k for k in self.sParamValues if varName[:-2] in k] 
+        varTimeTagPos = self.findTimeTagPos(varName)
+        return [k for k in self.sParamValues if varName[:-varTimeTagPos] in k]
+
+    def findTimeTagPos(self, varName):
+        for i in xrange(1, len(varName)):
+            if varName[-i] == "_":
+                return i
 
     def checkTimeTag(self, parent, child):
-        if parent[-1] == child[-1]:
-            return parent[:-2], child[:-2]
+        pTimeTagPos = self.findTimeTagPos(parent)
+        cTimeTagPos = self.findTimeTagPos(child)
+        if parent[-pTimeTagPos:] == child[-cTimeTagPos:]:
+            return parent[:-pTimeTagPos], child[:-cTimeTagPos]
         else:
-            return parent[:-1] + "T0", child[:-1] + "T1"
+            return parent[:-pTimeTagPos] + "_T0", child[:-cTimeTagPos] + "_T1"
 
     def train(self, trainData):
         print "Start training..."
         f = open(trainData, 'r')
 
-        # get the variables and values, ignore trajector and time numbers
-        data = [line.split()[1:] for line in f.readlines() if line.rstrip()]
+        # get the variables and values and convert them to tuples, ignoring trajectory and time tag
+        data = [self.convertExampleToTuple(line.split()[1:]) for line in f.readlines() if line.rstrip()]
         f.close()
 
-        data = map(self.convertExampleToTuple, data)
+        allObserve = set([o for o in self.sParamValues if "Observe" in o])
 
         # do counting
         for d in data:
             # count action and position
             row, col, action = self.getCoordAction(d)
-            if d[0] != 0: 
-                key = tuple(sorted((self.addTimeTag(row, 1), self.addTimeTag(preRow, 0), self.addTimeTag(preAct, 0))))
+            if d[0] != 0:
+                preRowShare, preColShare, rowShare, colShare = self.computePosDiff(preRow, preCol, row, col, preAct)
+                key = tuple(sorted((self.addTimeTag(rowShare, 1), self.addTimeTag(preRowShare, 0), self.addTimeTag(preAct, 0))))
                 self.counting[key] += 1
-                # key = tuple(sorted((self.addTimeTag(preRow, 0), self.addTimeTag(preAct, 0))))
-                # self.counting[key] += 1
-                key = tuple(sorted((self.addTimeTag(col, 1), self.addTimeTag(preCol, 0), self.addTimeTag(preAct, 0))))
+                key = tuple(sorted((self.addTimeTag(colShare, 1), self.addTimeTag(preColShare, 0), self.addTimeTag(preAct, 0))))
                 self.counting[key] += 1
-                # key = tuple(sorted((self.addTimeTag(preRow, 0), self.addTimeTag(preAct, 0))))
-                # self.counting[key] += 1
             preRow, preCol, preAct = row, col, action
 
             # count position and observation
-            pos = tuple(sorted((row, col)))
-            for v in [u for u in d[1:] if "Observe" in u[0]]:
-                key = tuple(sorted((v,) + pos))
+            # pos = tuple(sorted((row, col)))
+            observed = set([u[0] for u in d[1:] if "Observe" in u[0]])
+            nonObserved = allObserve - observed
+            for v in observed:
+                # key = tuple(sorted(((v, "Yes"),) + pos))
+                key = tuple(sorted(((v, "Yes"), row, col)))
                 self.counting[key] += 1
-        for k in self.counting:
+            for v in nonObserved:
+                # key = tuple(sorted(((v, "No"),) + pos))
+                key = tuple(sorted(((v, "No"), row, col)))
+                self.counting[key] += 1
+
+        for k in sorted(self.counting):
             print k, self.counting[k]
+
+    def computePosDiff(self, preRow, preCol, row, col, preAct):
+        if preAct[1] == "MoveEast":
+            if int(col[1]) < int(preCol[1]):
+                colDiff = int(col[1]) + (self.maxCol - int(preCol[1])) + 1
+            else:
+                colDiff = int(col[1]) - int(preCol[1]) + 1
+            return (preRow[0], "1"), (preCol[0], "1"), (row[0], "1"), (col[0], str(colDiff))
+
+        elif preAct[1] == "MoveWest":
+            if int(col[1]) > int(preCol[1]):
+                colDiff = int(preCol[1]) + (self.maxCol - int(col[1])) + 1
+            else:
+                colDiff = int(preCol[1]) - int(col[1]) + 1
+            return (preRow[0], "1"), (preCol[0], "1"), (row[0], "1"), (col[0], str(colDiff))
+
+        elif preAct[1] == "MoveNorth":
+            if int(row[1]) < int(preRow[1]):
+                rowDiff = int(row[1]) + (self.maxRow - int(preRow[1])) + 1
+            else:
+                rowDiff = int(row[1]) - int(preRow[1]) + 1
+            return (preRow[0], "1"), (preCol[0], "1"), (row[0], str(rowDiff)), (col[0], "1")
+
+        else:
+            if int(row[1]) > int(preRow[1]):
+                rowDiff = int(preRow[1]) + (self.maxRow - int(row[1])) + 1
+            else:
+                rowDiff = int(preRow[1]) - int(row[1]) + 1
+            return (preRow[0], "1"), (preCol[0], "1"), (row[0], str(rowDiff)), (col[0], "1")
 
     def addTimeTag(self, tup, time):
         if time == 0:
-            return (tup[0]+"_T0", tup[1])
+            return (tup[0] + "_T0", tup[1])
         else:
-            return (tup[0]+"_T1", tup[1])
+            return (tup[0] + "_T1", tup[1])
 
     def getCoordAction(self, data):
         row, col, action = None, None, None
@@ -313,30 +330,16 @@ class ParameterEstimate(object):
         self.eventCount[key] = self.eventCount.get(key, 0) + 1
 
     def convertExampleToTuple(self, ex):
+        """
+        convert data to tuple, excluding the time tag
+        e.g.
+        1 PositionRow_1=5 PositionCol_1=6 Action_1=MoveEast => (1, ("PositionRow, "5"), ("PositionCol", "6"), ("Action", "MoveEast"))
+        """
         splitEX = map(lambda e: e.split("="), ex)
-        output = [(e[0][:-2], e[1]) for e in splitEX[1:]]
-        output.sort()
+        output = [(e[0][:-self.findTimeTagPos(e[0])], e[1]) for e in splitEX[1:]]
+        # output.sort()
         output.insert(0, int(splitEX[0][0]))
         return tuple(output)
-
-    def topologicalSort(self, paraValue, childDict):
-        visited = set()
-        order = []
-        for node in sorted(paraValue):
-            if node not in visited:
-                self.dfs(node, visited, order, childDict)
-        return tuple(order)
-
-    def dfs(self, node, visited, order, childDict):
-        """ for topolotical sort """
-        visited.add(node)
-        if node not in childDict:
-            order.insert(0, node)
-        else:
-            for child in childDict[node]:
-                if child not in visited:
-                    self.dfs(child, visited, order, childDict)
-            order.insert(0, node)
 
     def check(self):
         # check network parsing
@@ -346,64 +349,110 @@ class ParameterEstimate(object):
             print k, self.nodes[k].values
         print "total var num:", num
 
-        # check training example parsing
+    def outputCPD(self, outputFile):
+        totalLine = 0
+        f = open(outputFile, 'w')
 
-    def printTopoOrder(self):
-        print "------- topological order -------"
-        for node in self.topologicalOrder:
-            print node + " -> "
-
-    def outputCPD(self):
         denoDP = {}
 
-        for child in self.parents:
-            print "--------------------------"
-            print child
-            childWithTime, parentWithTime, timeDiff = self.checkTime(child, self.parents[child])
-            print childWithTime, parentWithTime
+        print " output CPD --------------------------"
+        for child in sorted(self.parents):
+            if "Obser" not in child:
+                a = 1
 
+            childTimeTagPos = self.findTimeTagPos(child)
+
+            childWithTime, parentWithTime, timeDiff = self.checkTime(child, self.parents[child])
+            childWithTimeTagPos = self.findTimeTagPos(childWithTime)
             parent = self.parents[child]
             combination = []
             for p in parent:
                 val = self.paramValues[p]
                 combination = self.genComb(combination, p, val)
 
-
             for pkey in combination:
                 for val in self.paramValues[child]:
-                    print (((child, val),) + pkey)
-                    print "check", child, childWithTime
                     if timeDiff:
-                        denKey = tuple(sorted(parentWithTime))
-                        numKey = tuple(sorted(((childWithTime, val),) + denKey))
+                        prePos = [p for p in pkey if "Position" in p[0]][0]
+                        action = [p for p in pkey if "Action" in p[0]][0]
+                        prePos, curPos = self.decodeActionPos(prePos, (child, val), action)
+
+                        denKey = [(p[0][:-self.findTimeTagPos(p[0])] + "_T0", p[1]) for p in pkey]
+                        denKey = tuple(sorted(denKey))
+                        countDenKey = [(p[0][:-self.findTimeTagPos(p[0])] + "_T0", p[1]) for p in (action, prePos)]
+                        countDenKey = tuple(sorted(countDenKey))
+
+                        # numKey = tuple(sorted(((childWithTime, val),) + denKey))
+                        numKey = tuple(sorted(((childWithTime, curPos[1]),) + countDenKey))
+                        childCountKey = childWithTime
                     else:
                         denKey = tuple(sorted(self.removeTimeTag(pkey)))
-                        numKey = tuple(sorted(((child[:-2], val),) + denKey))
+                        countDenKey = denKey
+                        numKey = tuple(sorted(((child[:-childTimeTagPos], val),) + denKey))
+                        childCountKey = childWithTime[:-childWithTimeTagPos]
 
+                    if (child[:-childTimeTagPos], countDenKey) not in denoDP:
+                        denoDP[(child[:-childTimeTagPos], denKey)] = sum([self.counting[(tuple(sorted(((childCountKey, v),) + countDenKey)))] for v in self.sParamValues[child[:-childTimeTagPos]]])
 
-                    if denKey not in denoDP:
-                        self.denoDp[denKey] = sumDeno(child, )
+                    deno = denoDP[(child[:-childTimeTagPos], countDenKey)]
+                    numer = self.counting[numKey]
+                    prob = numer / deno
 
+                    f.write(self.printCPD((child, val), denKey, prob, timeDiff) + "\n")
+                    totalLine += 1
+                    # print self.printCPD((child, val), denKey, prob, timeDiff)
+        f.close()
+        print "Total lines:", totalLine
 
-                    # num = self.counting[numKey]
-                    # den = self.counting[denKey]
-                    # print self.tupToExp((child, val)), self.seperateParent(pkey), self.counting[numKey] / self.counting[denKey]
-                    # newkey = tuple(sorted(((child, val),) + pkey))
+    def decodeActionPos(self, prePos, curPos, action):
+        if action[1] in ["MoveEast", "MoveNorth"]:
+            if int(curPos[1]) < int(prePos[1]):
+                diff = int(curPos[1]) + (self.maxCol - int(prePos[1])) + 1
+            else:
+                diff = int(curPos[1]) - int(prePos[1]) + 1
+            return (prePos[0], "1"), (curPos[0], str(diff))
 
-    def printCPD(self, child, parents, prob):
-        childList = list(map(self.tupleToString, child))
-        childList.append(" ")
-        parentList = list(map(self.tupleToString, parents))
-        parentList.append(" ")
-        parentList.append(str(prob))
-        print "".join(childList + parentList)
+        elif action[1] in ["MoveWest", "MoveSouth"]:
+            if int(curPos[1]) > int(prePos[1]):
+                diff = int(prePos[1]) + (self.maxCol - int(curPos[1])) + 1
+            else:
+                diff = int(prePos[1]) - int(curPos[1]) + 1
+            return (prePos[0], "1"), (curPos[0], str(diff))
+
+    def getParentValue(self, child):
+        res = []
+        for parent in self.parents[child]:
+            res.append(parent)
+
+    def printCPD(self, child, parents, prob, timeDiff):
+        parentFullName = self.parents[child[0]]
+
+        newParent = []
+        if timeDiff:
+            timeTag = str(int(child[0][-1]) - 1)
+        else:
+            timeTag = child[0][-1]
+        for parent in parents:
+            if timeDiff:
+                newParent.append((parent[0][:-self.findTimeTagPos(parent[0])] + timeTag, parent[1]))
+            else:
+                newParent.append((parent[0] + "_" + timeTag, parent[1]))
+        # for parent in parents:
+        #     for parentName in parentFullName:
+        #         if parent[0] in parentName:
+        #             newParent.append((parentName, parent[1]))
+
+        childList = [self.tupleToString(child), " "]
+        parentList = list(map(self.tupleToString, newParent))
+        parentStr = ",".join(parentList)
+        probStr = "%.13e" % prob
+        return "".join(childList) + parentStr + " " + probStr
 
     def tupleToString(self, tup):
         return tup[0] + "=" + tup[1]
 
-
     def removeTimeTag(self, tup):
-        return tuple([(t[0][:-2], t[1]) for t in tup])
+        return tuple([(t[0][:-self.findTimeTagPos(t[0])], t[1]) for t in tup])
 
     def seperateParent(self, pkey):
         result = []
@@ -417,14 +466,15 @@ class ParameterEstimate(object):
     def checkTime(self, child, parents):
         newParent = []
         timeDiff = False
+        childTimeTagPos = self.findTimeTagPos(child)
         for parent in parents:
-            if parent[-1] != child[-1]:
-                newParent.append(parent[:-1] + "T0")
+            if parent[-self.findTimeTagPos(parent):] != child[-childTimeTagPos:]:
+                newParent.append(parent[:-self.findTimeTagPos(parent)] + "_T0")
                 timeDiff = True
             else:
-                newParent.append(parent[:-1] + "T1")
+                newParent.append(parent[:-self.findTimeTagPos(parent)] + "_T1")
         if timeDiff:
-            return child[:-1] + "T1", newParent, timeDiff
+            return child[:-childTimeTagPos] + "_T1", newParent, timeDiff
         else:
             return child, parents, timeDiff
 
@@ -445,6 +495,6 @@ if __name__=="__main__":
     pe = ParameterEstimate()
     pe.parseNetwork(network) 
     pe.train(trainData)
-    pe.outputCPD()
+    pe.outputCPD(output)
 
 
