@@ -5,15 +5,12 @@ import argparse
 class ParameterEstimate(object):
 
     def __init__(self):
-        # self.nodes = {}
-        # self.cpt = ConditionalProbTable()
-        self.eventCount = {}
         self.children = {}
         self.parents  = {}
         self.paramValues = {}
 
-
         self.processCnt = 0
+
         # simplified counting
         self.sChildren    = {}
         self.sParents     = {}
@@ -64,18 +61,7 @@ class ParameterEstimate(object):
             else:
                 self.sParents[child] = set([parent])
 
-        print "sParents ----------------------------------"
-        for k in sorted(self.sParents.keys()):
-            print k, self.sParents[k]
-
-        print "sChildren ----------------------------------"
-        for k in sorted(self.sChildren.keys()):
-            print k, self.sChildren[k]
-
         self.sParamValues = dict.fromkeys( set(self.sParents.keys() + self.sChildren.keys()), [] )
-        # print "sParamValues ---------------------------------------------------"
-        # for k in sorted(self.sParamValues.keys()):
-        #     print k, self.sParamValues[k]
 
         # store nodes' names and values
         for d in data[1 : 1 + self.numVar]:
@@ -92,11 +78,16 @@ class ParameterEstimate(object):
         self.maxCol = int(max([int(x) for x in self.paramValues["PositionCol_0"]]))
 
         self.counting = self.genCountingDict(self.sParamValues, self.sParents)
-        for k in sorted(self.counting.keys()):
-            print k, self.counting[k]
+        # for k in sorted(self.counting.keys()):
+        #     print k, self.counting[k]
 
     def genCountingDict(self, paramValues, parents):
-        print "genCountingDict --------"
+        """
+        Generate a dictionary for counting events.
+        :param paramValues: parameters and values dictionary
+        :param parents: parents dictionary
+        :return: a dictionary containing all possible outcome
+        """
         count = {}
 
         for child in parents:
@@ -126,6 +117,7 @@ class ParameterEstimate(object):
         return count
 
     def isValidMove(self, pos1, pos0, action):
+        """ determine whether the tow positions is valid given an action """
         move = action[1]
         if move == "MoveEast":
             if "Col" in pos1[0]:
@@ -150,6 +142,13 @@ class ParameterEstimate(object):
 
 
     def genComb(self, combination, p, val):
+        """
+        Generate all combination of parameters and values.
+        :param combination: other parameters and values' combination. attach new parameter and value to each of them.
+        :param p: parameter
+        :param val: values
+        :return: new combination
+        """
         res = []
         if combination:
             for v in val:
@@ -165,6 +164,11 @@ class ParameterEstimate(object):
         return [k for k in self.sParamValues if varName[:-varTimeTagPos] in k]
 
     def findTimeTagPos(self, varName):
+        """
+        Find the time tag's position in the given variable name.
+        :param varName: variable name
+        :return: the index of the "-" character before time tag.
+        """
         for i in xrange(1, len(varName)):
             if varName[-i] == "_":
                 return i
@@ -178,7 +182,10 @@ class ParameterEstimate(object):
             return parent[:-pTimeTagPos] + "_T0", child[:-cTimeTagPos] + "_T1"
 
     def train(self, trainData):
-        print "Start training"
+        """
+        Count the examples using parameter sharing method.
+        :param trainData:
+        """
         f = open(trainData, 'r')
 
         # get the variables and values and convert them to tuples, ignoring trajectory and time tag
@@ -189,8 +196,6 @@ class ParameterEstimate(object):
 
         # do the counting
         for d in data:
-            self.printProcess()
-
             # count action and position
             row, col, action = self.getCoordAction(d)
             if d[0] != 0:
@@ -207,21 +212,14 @@ class ParameterEstimate(object):
             observed = set([u[0] for u in d[1:] if "Observe" in u[0]])
             nonObserved = allObserve - observed
             for v in observed:
-                # key = tuple(sorted(((v, "Yes"),) + pos))
                 key = tuple(sorted(((v, "Yes"), row, col)))
                 self.counting[key] += 1
             for v in nonObserved:
-                # key = tuple(sorted(((v, "No"),) + pos))
                 key = tuple(sorted(((v, "No"), row, col)))
                 self.counting[key] += 1
 
-
-        for k in sorted(self.counting):
-            print k, self.counting[k]
-
     def computePosDiff(self, preRow, preCol, row, col, preAct):
         """ compute how many steps between tow position """
-
         if preAct[1] == "MoveEast":
             if int(col[1]) < int(preCol[1]):  # go around
                 colDiff = int(col[1]) + (self.maxCol - int(preCol[1]))
@@ -248,12 +246,11 @@ class ParameterEstimate(object):
             return (preRow[0], str(self.maxRow)), (preCol[0], "1"), (row[0], str(self.maxRow - rowDiff)), (col[0], "1")
 
     def addTimeTag(self, tup, time):
-        # if time == 0:
-            return (tup[0] + "_T" + str(time), tup[1])
-        # else:
-            # return (tup[0] + "_T1", tup[1])
+        """ add time tag to the end of the variable name in the given tuple """
+        return (tup[0] + "_T" + str(time), tup[1])
 
     def getCoordAction(self, data):
+        """ find the action, PositionRow, and PositoinCol from a example """
         row, col, action = None, None, None
         for d in data[1:]:
             if 'Row' in d[0]:
@@ -276,11 +273,10 @@ class ParameterEstimate(object):
         return tuple(output)
 
     def outputCPD(self, outputFile):
+        """ output the extimated parameters for each variable using add one method """
         outputLines = []
-
         denoDP = {}
 
-        print " output CPD",
         for child in sorted(self.parents):
             childTimeTagPos = self.findTimeTagPos(child)
             childWithTime, parentWithTime, timeDiff = self.checkTime(child, self.parents[child])
@@ -293,29 +289,20 @@ class ParameterEstimate(object):
 
             for pkey in combination:
                 for val in self.paramValues[child]:
-                    self.printProcess()
-
                     if timeDiff:
                         for p in pkey:
                             if "Action" in p[0]:
                                 action = p
                             elif "Position" in p[0]:
                                 prePos = p
-                        # prePos = [p for p in pkey if "Position" in p[0]][0]
-                        # action = [p for p in pkey if "Action" in p[0]][0]
                         if not self.isValidMove((child, val), prePos, action):
                             continue
                         prePos, curPos = self.decodeActionPos(prePos, (child, val), action)
-
                         denKey = [(p[0][:-self.findTimeTagPos(p[0])] + "_T0", p[1]) for p in pkey]
                         denKey = tuple(sorted(denKey))
-
                         countDenKey = [(p[0][:-self.findTimeTagPos(p[0])] + "_T0", p[1]) for p in (action, prePos)]
                         countDenKey = tuple(sorted(countDenKey))
-
                         numKey = tuple(sorted(((childWithTime, curPos[1]),) + countDenKey))  # TODO:check
-                        # if numKey == (('Action_T0', 'MoveWest'), ('PositionCol_T0', '1'), ('PositionCol_T1', '2')):
-                        #     a = 1
                         childCountKey = childWithTime
                     else:
                         denKey = tuple(sorted(self.removeTimeTag(pkey)))
@@ -334,8 +321,6 @@ class ParameterEstimate(object):
         f = open(outputFile, 'w')
         f.writelines(outputLines)
         f.close()
-        print ""
-        print "Total lines:", len(outputLines)
 
     def decodeActionPos(self, prePos, curPos, action):
         if action[1] == "MoveEast":
@@ -369,8 +354,6 @@ class ParameterEstimate(object):
             res.append(parent)
 
     def printCPD(self, child, parents, prob, timeDiff):
-        parentFullName = self.parents[child[0]]
-
         childTimeTagPos = self.findTimeTagPos(child[0])
 
         newParent = []
@@ -383,16 +366,11 @@ class ParameterEstimate(object):
                 newParent.append((parent[0][:-self.findTimeTagPos(parent[0])] + timeTag, parent[1]))
             else:
                 newParent.append((parent[0] + timeTag, parent[1]))
-        # for parent in parents:
-        #     for parentName in parentFullName:
-        #         if parent[0] in parentName:
-        #             newParent.append((parentName, parent[1]))
 
         childList = [self.tupleToString(child), " "]
         parentList = list(map(self.tupleToString, newParent))
         parentStr = ",".join(sorted(parentList, reverse=True))
-        # probStr = "%.13e" % prob
-        probStr = str(prob)
+        probStr = "%.13e" % prob
         return "".join(childList) + parentStr + " " + probStr
 
     def tupleToString(self, tup):
@@ -425,13 +403,13 @@ class ParameterEstimate(object):
         else:
             return child, parents, timeDiff
 
-    def printProcess(self):
-        self.processCnt += 1
-        if self.processCnt % 2000 == 0:
-            print ".",
-        if self.processCnt > 100000:
-            print ""
-            self.processCnt = 0
+    # def printProcess(self):
+    #     self.processCnt += 1
+    #     if self.processCnt % 2000 == 0:
+    #         print ".",
+    #     if self.processCnt > 100000:
+    #         print ""
+    #         self.processCnt = 0
 
 if __name__=="__main__":
     # Get the arguments from command line
