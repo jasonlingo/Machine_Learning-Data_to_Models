@@ -113,8 +113,8 @@ public class CollapsedGibb {
         //perform sampling process for iterNum iterations
         //================================================================
         for(int t = 1; t <= iterNum; t++) {
-//            if (t % 10 == 0)
-//                System.out.printf("%d-th iteration...\n", t);
+            if (t % 10 == 0)
+                System.out.printf("%d-th iteration...\n", t);
 
             for(int d = 0; d < trainData.size(); d++) {
                 String[] doc = trainData.get(d);
