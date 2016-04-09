@@ -1,0 +1,18 @@
+#!/usr/bin/python
+
+import sys
+import os
+
+if len(sys.argv) != 3: 
+    print 'the input parameter should be 2: Parse *.gr *sen' % sys.argv[0]
+    sys.exit()
+
+gr = sys.argv[1]
+sen = sys.argv[2]
+
+cmd = 'javac Origin/*.java'
+os.system(cmd)
+cmd = 'java Origin.Parse '+gr+' '+sen
+os.system(cmd)
+
+	
