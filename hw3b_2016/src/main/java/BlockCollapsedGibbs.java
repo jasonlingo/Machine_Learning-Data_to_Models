@@ -97,6 +97,7 @@ public class BlockCollapsedGibbs {
         List<Double> logLikelihoodTrain = new ArrayList<Double>();
         List<Double> logLikelihoodTest = new ArrayList<Double>();
 
+
         //randomly initialize z and x
         Random rand = new Random(0);
         int[][] zdi = initZX(trainData, k, rand);
@@ -156,9 +157,11 @@ public class BlockCollapsedGibbs {
             //compute log-likelihood
             logLikelihoodTrain.add(computeLogLikelihood(trainData, _thetadk, xdi));
             logLikelihoodTest.add(computeLogLikelihood(testData, _testThetadk, testXdi));
+
         }
 
         outputData(outputFile, thetadkSample, phikwSample, phickwSample, logLikelihoodTrain, logLikelihoodTest);
+
 
     }
 
@@ -565,7 +568,6 @@ public class BlockCollapsedGibbs {
             e.printStackTrace();
         }
     }
-
 
     public static void main(String[] args) throws IOException {
         String trainFile  = args[0];
