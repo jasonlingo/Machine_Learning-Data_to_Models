@@ -20,9 +20,10 @@ def main(collapsed, blocked, title, filename):
     x = [i for i in range(1, len(collapsedData) + 1)]
 
     y = collapsedData
-    plt.plot(x, y, "b-", lw=2.5)
+    plt.plot(x, y, "b-", lw=2.5, label="collapsed-Gibbs")
     y = blockedData
-    plt.plot(x, y, "r-", lw=2.5)
+    plt.plot(x, y, "r-", lw=2.5, label="blocked-collapsed-Gibbs")
+    plt.legend(loc=0, prop={'size':12})
 
     plt.savefig(filename)
     plt.clf()
@@ -35,32 +36,34 @@ def readFile(file):
     return data
 
 if __name__ == "__main__":
-    trainll = 'submission/collapsed-output-5-0.5-0.1.txt-trainll'
-    testll  = 'submission/blocked-output-5-0.5-0.1.txt-trainll'
+    folder = "result"
+
+    trainll = folder + '/collapsed-output-5-0.5-0.1.txt-trainll'
+    testll  = folder + '/blocked-output-5-0.5-0.1.txt-trainll'
     title = "Training log likelihood for Collapsed and blocked-collapsed Gibbs samplers\n(Topic, lambda, alpha, beta)=(5, 0.5, 0.1, 0.01)"
     filename = "Q5-2-output-5-0.5-0.1.png"
     main(trainll, testll, title, filename)
 
-    trainll = 'submission/collapsed-output-5-0.8-0.1.txt-trainll'
-    testll  = 'submission/blocked-output-5-0.8-0.1.txt-trainll'
+    trainll = folder + '/collapsed-output-5-0.8-0.1.txt-trainll'
+    testll  = folder + '/blocked-output-5-0.8-0.1.txt-trainll'
     title = "Training log likelihood for Collapsed and blocked-collapsed Gibbs samplers\n(Topic, lambda, alpha, beta)=(5, 0.8, 0.1, 0.01)"
     filename = "Q5-2-output-5-0.8-0.1.png"
     main(trainll, testll, title, filename)
 
-    trainll = 'submission/collapsed-output-25-0.5-0.1.txt-trainll'
-    testll  = 'submission/blocked-output-25-0.5-0.1.txt-trainll'
+    trainll = folder + '/collapsed-output-25-0.5-0.1.txt-trainll'
+    testll  = folder + '/blocked-output-25-0.5-0.1.txt-trainll'
     title = "Training log likelihood for Collapsed and blocked-collapsed Gibbs samplers\n(Topic, lambda, alpha, beta)=(25, 0.5, 0.1, 0.01)"
     filename = "Q5-2-output-25-0.5-0.1.png"
     main(trainll, testll, title, filename)
 
-    trainll = 'submission/collapsed-output-25-0.2-0.1.txt-trainll'
-    testll  = 'submission/blocked-output-25-0.2-0.1.txt-trainll'
+    trainll = folder + '/collapsed-output-25-0.2-0.1.txt-trainll'
+    testll  = folder + '/blocked-output-25-0.2-0.1.txt-trainll'
     title = "Training log likelihood for Collapsed and blocked-collapsed Gibbs samplers\n(Topic, lambda, alpha, beta)=(25, 0.2, 0.1, 0.01)"
     filename = "Q5-2-output-25-0.2-0.1.png"
     main(trainll, testll, title, filename)        
 
-    trainll = 'submission/collapsed-output-25-0.5-1.0.txt-trainll'
-    testll  = 'submission/blocked-output-25-0.5-1.0.txt-trainll'
+    trainll = folder + '/collapsed-output-25-0.5-1.0.txt-trainll'
+    testll  = folder + '/blocked-output-25-0.5-1.0.txt-trainll'
     title = "Training log likelihood for Collapsed and blocked-collapsed Gibbs samplers\n(Topic, lambda, alpha, beta)=(25, 0.5, 1.0, 0.01)"
     filename = "Q5-2-output-25-0.5-1.0.png"
     main(trainll, testll, title, filename)  

@@ -51,6 +51,9 @@ public class BlockCollapsedGibbs {
     private double[][][] _phickw;
     private double[][] _testThetadk;
 
+    // for initializing x related arrays.
+    final int X_RANGE = 2;
+
     public BlockCollapsedGibbs() {
         this._wType = new HashMap<String, Integer>();
     }
@@ -61,6 +64,7 @@ public class BlockCollapsedGibbs {
         _alpha = alpha;
         _beta = beta;
         _lambda = lambda;
+
 
         //parse training and testing documents
         List<String[]> trainData = parseDoc(trainFile, true);
@@ -101,9 +105,10 @@ public class BlockCollapsedGibbs {
         //randomly initialize z and x
         Random rand = new Random(0);
         int[][] zdi = initZX(trainData, k, rand);
-        int[][] xdi = initZX(trainData, 2, rand);
+        int[][] xdi = initZX(trainData, X_RANGE, rand);
         int[][] testZdi = initZX(testData, k, rand);
-        int[][] testXdi = initZX(testData, 2, rand);
+        int[][] testXdi = initZX(testData, X_RANGE, rand);
+
 
         //do counting
         countN(trainData, zdi, xdi);
@@ -116,20 +121,21 @@ public class BlockCollapsedGibbs {
         for(int t = 1; t <= iterNum; t++) {
             if (t % 10 == 0)
                 System.out.printf("%d-th iteration...\n", t);
-            int tempZdi, tempXdi;
+            int[] tempZXdi;
             for(int d = 0; d < trainData.size(); d++) {
                 String[] doc = trainData.get(d);
                 for(int i = 1; i < doc.length; i++) {
                     excludeCnt(d, i, doc, xdi, zdi);
-                    tempZdi = sampleZdi(d, i, xdi, doc);
-                    tempXdi = sampleXdi(d, i, zdi, doc);
-                    zdi[d][i] = tempZdi;
-                    xdi[d][i] = tempXdi;
+//                    tempZdi = sampleZdi(d, i, xdi, doc);
+//                    tempXdi = sampleXdi(d, i, zdi, doc);
+                    tempZXdi = sampleZXdi(d, i, doc);
+                    zdi[d][i] = tempZXdi[1];
+                    xdi[d][i] = tempZXdi[0];
                     includeCnt(d, i, doc, xdi, zdi);
                 }
             }
 
-            _thetadk = estimateTheta(trainData, _thetadk, _ndk, _nds); //TODO: start check here
+            _thetadk = estimateTheta(trainData, _thetadk, _ndk, _nds);
             estimatePhi();
 
             //after burn-in period, collect samples
@@ -144,10 +150,11 @@ public class BlockCollapsedGibbs {
                 String[] doc = testData.get(d);
                 for(int i = 1; i < doc.length; i++) {
                     excludeTestCnt(d, i, doc, testXdi, testZdi);
-                    tempZdi = sampleTestZdi(d, i, testXdi, doc);
-                    tempXdi = sampleTestXdi(d, i, testZdi, doc);
-                    testZdi[d][i] = tempZdi;
-                    testXdi[d][i] = tempXdi;
+//                    tempZdi = sampleTestZdi(d, i, testXdi, doc);
+//                    tempXdi = sampleTestXdi(d, i, testZdi, doc);
+                    tempZXdi = sampleZXdi(d, i, doc);
+                    testZdi[d][i] = tempZXdi[1];
+                    testXdi[d][i] = tempZXdi[0];
                     includeTestCnt(d, i, doc, testXdi, testZdi);
                 }
             }
@@ -199,6 +206,31 @@ public class BlockCollapsedGibbs {
             }
         }
         return logProb;
+    }
+
+    /*
+     Sample Zdi and Xdi simultaneously.
+     @Return Xdi, Zdi
+     */
+    private int[] sampleZXdi(int d, int i, String[] doc) {
+        int c = Integer.valueOf(doc[0]);
+        int w = _wType.get(doc[i]);
+        double[][] prob = new double[X_RANGE][_k];
+
+        for (int x = 0; x < X_RANGE; x++) {
+            for(int kk = 0; kk < _k; kk++) {
+                double thetadk = (_ndk[d][kk] + _alpha) / (_nds[d] + _k * _alpha);
+                if (x == 0) {
+                    double phikw = (_nkw[kk][w] + _beta) / (_nks[kk] + _v * _beta);
+                    prob[x][kk] = (1 - _lambda) * thetadk * phikw;
+                } else {
+                    double phickw = (_nckw[c][kk][w] + _beta) / (_ncks[c][kk] + _v * _beta);
+                    prob[x][kk] = _lambda * thetadk * phickw;
+                }
+            }
+        }
+
+        return weightedRandom2(prob);
     }
 
     private int sampleZdi(int d, int i, int[][] xdi, String[] doc) {
@@ -275,6 +307,29 @@ public class BlockCollapsedGibbs {
             }
         }
         return prob.length - 1;
+    }
+
+    private int[] weightedRandom2(double[][] probs) {
+        double tot = 0.0;
+        for (double[] prob : probs) {
+            for(double p : prob) {
+                tot += p;
+            }
+        }
+
+        double pick = Math.random() * tot;
+        double cumu = 0.0;
+        for(int x = 0; x < probs.length; x++) {
+            for(int k = 0; k < probs[0].length; k++) {
+                cumu += probs[x][k];
+                if (pick <= cumu) {
+                    int[] ans = {x, k};
+                    return ans;
+                }
+            }
+        }
+        int[] ans = {probs.length - 1, probs[0].length - 1};
+        return ans;
     }
 
     private void excludeCnt(int d, int i, String[] doc, int[][] xdi, int[][] zdi) {
@@ -401,7 +456,6 @@ public class BlockCollapsedGibbs {
         Set<String> coll = new HashSet<String>();
         BufferedReader br = new BufferedReader(new FileReader(file));
         String line;
-        int index = 0;
         while ((line = br.readLine()) != null) {
             String[] s = line.split(" ");
             data.add(s);

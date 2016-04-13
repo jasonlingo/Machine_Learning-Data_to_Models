@@ -53,11 +53,13 @@ def readFile(file):
 
 if __name__ == "__main__":
 
-    testll10  = 'submission/collapsed-output-Q5-4-10.txt-testll'
-    testll20  = 'submission/collapsed-output-Q5-4-20.txt-testll'
-    testll30  = 'submission/collapsed-output-Q5-4-30.txt-testll'
-    testll40  = 'submission/collapsed-output-Q5-4-40.txt-testll'
-    testll50  = 'submission/collapsed-output-Q5-4-50.txt-testll'
+    folder = "result"
+
+    testll10  = folder + '/collapsed-output-Q5-4-10.txt-testll'
+    testll20  = folder + '/collapsed-output-Q5-4-20.txt-testll'
+    testll30  = folder + '/collapsed-output-Q5-4-30.txt-testll'
+    testll40  = folder + '/collapsed-output-Q5-4-40.txt-testll'
+    testll50  = folder + '/collapsed-output-Q5-4-50.txt-testll'
     data = [testll10, testll20, testll30, testll40, testll50]
 
 

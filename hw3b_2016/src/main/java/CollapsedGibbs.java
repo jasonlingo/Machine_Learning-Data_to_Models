@@ -394,7 +394,6 @@ public class CollapsedGibbs {
         Set<String> coll = new HashSet<String>();
         BufferedReader br = new BufferedReader(new FileReader(file));
         String line;
-        int index = 0;
         while ((line = br.readLine()) != null) {
             String[] s = line.split(" ");
             data.add(s);

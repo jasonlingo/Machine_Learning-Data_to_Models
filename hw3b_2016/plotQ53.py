@@ -25,9 +25,10 @@ def main(collapsed, blocked, collTime, blockTime, title, filename):
 
     # x = [i for i in range(1, len(collapsedData) + 1)]
 
-    plt.plot(collTime, collapsedData, "b-", lw=2.5)
-    plt.plot(blockTime, blockedData, "r-", lw=2.5)
-
+    plt.plot(collTime, collapsedData, "b-", lw=2.5, label='collapsed-Gibbs')
+    plt.plot(blockTime, blockedData, "r-", lw=2.5, label='blocked-collapsed-Gibbs')
+    plt.legend(loc=0, prop={'size':12})
+    
     plt.savefig(filename)
     plt.clf()
 
@@ -39,12 +40,52 @@ def readFile(file):
     return data
 
 if __name__ == "__main__":
-    block = 'submission/timed-block-output-Q5-3-25-0.5-0.1.txt-trainll'
-    blockTime = 'submission/timed-collapsed-output-Q5-3-25-0.5-0.1.txt-time'
-    coll  = 'submission/timed-collapsed-output-Q5-3-25-0.5-0.1.txt-trainll'
-    collTime = 'submission/timed-block-output-Q5-3-25-0.5-0.1.txt-time'
+
+    folder = "result"
+
+    block = folder + '/timed-block-output-Q5-3-5-0.5-0.1.txt-trainll'
+    blockTime = folder + '/timed-collapsed-output-Q5-3-5-0.5-0.1.txt-time'
+    coll  = folder + '/timed-collapsed-output-Q5-3-5-0.5-0.1.txt-trainll'
+    collTime = folder + '/timed-block-output-Q5-3-5-0.5-0.1.txt-time'
+    title = "Training log likelihood for Collapsed and blocked-collapsed Gibbs samplers for different runtime\n(Topic, lambda, alpha, beta)=(5, 0.5, 0.1, 0.01)"
+    filename = "Q5-3-output-5-0.5-0.1.png"
+    main(coll, block, collTime, blockTime, title, filename)
+
+
+    block = folder + '/timed-block-output-Q5-3-5-0.8-0.1.txt-trainll'
+    blockTime = folder + '/timed-collapsed-output-Q5-3-5-0.8-0.1.txt-time'
+    coll  = folder + '/timed-collapsed-output-Q5-3-5-0.8-0.1.txt-trainll'
+    collTime = folder + '/timed-block-output-Q5-3-5-0.8-0.1.txt-time'
+    title = "Training log likelihood for Collapsed and blocked-collapsed Gibbs samplers for different runtime\n(Topic, lambda, alpha, beta)=(5, 0.8, 0.1, 0.01)"
+    filename = "Q5-3-output-5-0.8-0.1.png"
+    main(coll, block, collTime, blockTime, title, filename)
+
+
+    block = folder + '/timed-block-output-Q5-3-25-0.5-0.1.txt-trainll'
+    blockTime = folder + '/timed-collapsed-output-Q5-3-25-0.5-0.1.txt-time'
+    coll  = folder + '/timed-collapsed-output-Q5-3-25-0.5-0.1.txt-trainll'
+    collTime = folder + '/timed-block-output-Q5-3-25-0.5-0.1.txt-time'
     title = "Training log likelihood for Collapsed and blocked-collapsed Gibbs samplers for different runtime\n(Topic, lambda, alpha, beta)=(25, 0.5, 0.1, 0.01)"
-    filename = "Q5-3-output.png"
+    filename = "Q5-3-output-25-0.5-0.1.png"
+    main(coll, block, collTime, blockTime, title, filename)
+
+
+    block = folder + '/timed-block-output-Q5-3-25-0.2-0.1.txt-trainll'
+    blockTime = folder + '/timed-collapsed-output-Q5-3-25-0.2-0.1.txt-time'
+    coll  = folder + '/timed-collapsed-output-Q5-3-25-0.2-0.1.txt-trainll'
+    collTime = folder + '/timed-block-output-Q5-3-25-0.2-0.1.txt-time'
+    title = "Training log likelihood for Collapsed and blocked-collapsed Gibbs samplers for different runtime\n(Topic, lambda, alpha, beta)=(25, 0.2, 0.1, 0.01)"
+    filename = "Q5-3-output-25-0.2-0.1.png"
+    main(coll, block, collTime, blockTime, title, filename)
+
+
+
+    block = folder + '/timed-block-output-Q5-3-25-0.5-1.0.txt-trainll'
+    blockTime = folder + '/timed-collapsed-output-Q5-3-25-0.5-1.0.txt-time'
+    coll  = folder + '/timed-collapsed-output-Q5-3-25-0.5-1.0.txt-trainll'
+    collTime = folder + '/timed-block-output-Q5-3-25-0.5-1.0.txt-time'
+    title = "Training log likelihood for Collapsed and blocked-collapsed Gibbs samplers for different runtime\n(Topic, lambda, alpha, beta)=(25, 0.5, 1.0, 0.01)"
+    filename = "Q5-3-output-25-0.5-1.0.png"
     main(coll, block, collTime, blockTime, title, filename)
 
 
