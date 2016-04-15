@@ -50,6 +50,7 @@ public class TimedCollapsedGibbs {
     private double[][] _phikw;
     private double[][][] _phickw;
     private double[][] _testThetadk;
+    final int X_RANGE = 2;
 
     public TimedCollapsedGibbs() {
         this._wType = new HashMap<String, Integer>();
@@ -86,7 +87,7 @@ public class TimedCollapsedGibbs {
         _thetadk = new double[trainData.size()][k];
         _phikw   = new double[k][_v];
         _phickw  = new double[_col][k][_v];
-        _testThetadk = new double[trainData.size()][k];
+        _testThetadk = new double[testData.size()][k];
 
         //for collecting samples after burn-in period
         List<double[][]> thetadkSample  = new ArrayList<double[][]>();
@@ -101,13 +102,13 @@ public class TimedCollapsedGibbs {
         //randomly initialize z and x
         Random rand = new Random(0);
         int[][] zdi = initZX(trainData, k, rand);
-        int[][] xdi = initZX(trainData, 2, rand);
+        int[][] xdi = initZX(trainData, X_RANGE, rand);
         int[][] testZdi = initZX(testData, k, rand);
-        int[][] testXdi = initZX(testData, 2, rand);
+        int[][] testXdi = initZX(testData, X_RANGE, rand);
 
         //do counting
-        countN(trainData, zdi, xdi);
-        countTestNdk(testData, testZdi, testXdi);
+        countN(trainData, zdi);
+        countTestNdk(testData, testZdi);
 
 
         //================================================================
@@ -121,10 +122,10 @@ public class TimedCollapsedGibbs {
             for(int d = 0; d < trainData.size(); d++) {
                 String[] doc = trainData.get(d);
                 for(int i = 1; i < doc.length; i++) {
-                    excludeCnt(d, i, doc, xdi, zdi);
+                    excludeCnt(d, i, doc, zdi);
                     zdi[d][i] = sampleZdi(d, i, xdi, doc);
                     xdi[d][i] = sampleXdi(d, i, zdi, doc);
-                    includeCnt(d, i, doc, xdi, zdi);
+                    includeCnt(d, i, doc, zdi);
                 }
             }
 
@@ -142,18 +143,18 @@ public class TimedCollapsedGibbs {
             for(int d = 0; d < testData.size(); d++) {
                 String[] doc = testData.get(d);
                 for(int i = 1; i < doc.length; i++) {
-                    excludeTestCnt(d, i, doc, testXdi, testZdi);
+                    excludeTestCnt(d, i, testZdi);
                     testZdi[d][i] = sampleTestZdi(d, i, testXdi, doc);
                     testXdi[d][i] = sampleTestXdi(d, i, testZdi, doc);
-                    includeTestCnt(d, i, doc, testXdi, testZdi);
+                    includeTestCnt(d, i, testZdi);
                 }
             }
 
             _testThetadk = estimateTheta(testData, _testThetadk, _testNdk, _testNds);
 
             //compute log-likelihood
-            logLikelihoodTrain.add(computeLogLikelihood(trainData, _thetadk, xdi));
-            logLikelihoodTest.add(computeLogLikelihood(testData, _testThetadk, testXdi));
+            logLikelihoodTrain.add(computeLogLikelihood(trainData, _thetadk));
+            logLikelihoodTest.add(computeLogLikelihood(testData, _testThetadk));
             timeStamp[t-1] = (System.nanoTime() - startTime) / 1000000;  //divide by 1000000 to get milliseconds.
         }
 
@@ -181,7 +182,7 @@ public class TimedCollapsedGibbs {
         return nAry;
     }
 
-    private double computeLogLikelihood(List<String[]> data, double[][] thetadk, int[][] xdi) {
+    private double computeLogLikelihood(List<String[]> data, double[][] thetadk) {
         double logProb = 0.0;
         for(int d = 0; d < data.size(); d++) {
             String[] doc = data.get(d);
@@ -274,7 +275,7 @@ public class TimedCollapsedGibbs {
         return prob.length - 1;
     }
 
-    private void excludeCnt(int d, int i, String[] doc, int[][] xdi, int[][] zdi) {
+    private void excludeCnt(int d, int i, String[] doc, int[][] zdi) {
         int c = Integer.valueOf(doc[0]);
         int w = _wType.get(doc[i]);
         int k = zdi[d][i];
@@ -286,13 +287,13 @@ public class TimedCollapsedGibbs {
         _ncks[c][k] -= 1;
     }
 
-    private void excludeTestCnt(int d, int i, String[] doc, int[][] xdi, int[][] zdi) {
+    private void excludeTestCnt(int d, int i, int[][] zdi) {
         int k = zdi[d][i];
         _testNdk[d][k] -= 1;
         _testNds[d] -= 1;
     }
 
-    private void includeCnt(int d, int i, String[] doc, int[][] xdi, int[][] zdi) {
+    private void includeCnt(int d, int i, String[] doc, int[][] zdi) {
         int c = Integer.valueOf(doc[0]);
         int w = _wType.get(doc[i]);
         int k = zdi[d][i];
@@ -304,7 +305,7 @@ public class TimedCollapsedGibbs {
         _ncks[c][k] += 1;
     }
 
-    private void includeTestCnt(int d, int i, String[] doc, int[][] xdi, int[][] zdi) {
+    private void includeTestCnt(int d, int i, int[][] zdi) {
         int k = zdi[d][i];
         _testNdk[d][k] += 1;
         _testNds[d] += 1;
@@ -332,7 +333,7 @@ public class TimedCollapsedGibbs {
         }
     }
 
-    private void countN(List<String[]> data, int[][] zdi, int[][] xdi) {
+    private void countN(List<String[]> data, int[][] zdi) {
         for(int d = 0; d < data.size(); d++) {
             String[] doc = data.get(d);
             int c = Integer.valueOf(doc[0]);
@@ -350,10 +351,11 @@ public class TimedCollapsedGibbs {
         }
     }
 
-    private void countTestNdk(List<String[]> data, int[][] zdi, int[][] xdi) {
+    private void countTestNdk(List<String[]> data, int[][] zdi) {
         for(int d = 0; d < data.size(); d++) {
             String[] doc = data.get(d);
 
+            _testNds[d] = doc.length - 1;
             for(int i = 1; i < doc.length; i++) {
                 _testNdk[d][zdi[d][i]] += 1;
             }
@@ -366,7 +368,6 @@ public class TimedCollapsedGibbs {
      */
     private int[][] initZX(List<String[]> data, int range, Random rand) {
         int[][] res = new int[data.size()][];
-        rand = new Random(0);
         for(int i = 0; i < data.size(); i++) {
             String[] s = data.get(i);
             res[i] = new int[s.length];
@@ -413,7 +414,6 @@ public class TimedCollapsedGibbs {
 
         return data;
     }
-
 
 
     /*

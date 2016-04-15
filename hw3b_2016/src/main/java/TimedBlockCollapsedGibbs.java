@@ -7,7 +7,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
-public class TimedBlockCollapsedGibbs {
+public class TimedBlockCollapsedGibbs extends BlockCollapsedGibbs {
     /*
         d       : document index
         C_d     : {A, S},
@@ -27,32 +27,32 @@ public class TimedBlockCollapsedGibbs {
         alpha, beta, lambda : are hyperparameters that is the parameter of prior distribution
      */
 
-    private int _k;
-    private int _col;  //number of collection;
-    private int _v;    //total number of unique word types
-    private Map<String, Integer> _wType; //word types
-    private double _lambda;
-    private double _alpha;
-    private double _beta;
-
-    //counters
-    private int[][] _ndk;  //the number of tokens in document d assigned to topic k
-    private int[] _nds;    //the number of tokens assigned to any topic in document d (the length of document d)
-    private int[][] _nkw;  //the number of tokens assigned to topic k which are the word type w (x = 0)
-    private int[] _nks;    //the total number of tokens of any word type that are assigned to topic k
-    private int[][][] _nckw; //the corpus-dependent counts (x = 1)
-    private int[][] _ncks;
-    private int[][] _testNdk;
-    private int[] _testNds;
-
-    //parameters
-    private double[][] _thetadk;
-    private double[][] _phikw;
-    private double[][][] _phickw;
-    private double[][] _testThetadk;
-
-    // for initializing x related arrays.
-    final int X_RANGE = 2;
+//    protected int _k;
+//    protected int _col;  //number of collection;
+//    protected int _v;    //total number of unique word types
+//    protected Map<String, Integer> _wType; //word types
+//    protected double _lambda;
+//    protected double _alpha;
+//    protected double _beta;
+//
+//    //counters
+//    protected int[][] _ndk;  //the number of tokens in document d assigned to topic k
+//    protected int[] _nds;    //the number of tokens assigned to any topic in document d (the length of document d)
+//    protected int[][] _nkw;  //the number of tokens assigned to topic k which are the word type w (x = 0)
+//    protected int[] _nks;    //the total number of tokens of any word type that are assigned to topic k
+//    protected int[][][] _nckw; //the corpus-dependent counts (x = 1)
+//    protected int[][] _ncks;
+//    protected int[][] _testNdk;
+//    protected int[] _testNds;
+//
+//    //parameters
+//    protected double[][] _thetadk;
+//    protected double[][] _phikw;
+//    protected double[][][] _phickw;
+//    protected double[][] _testThetadk;
+//
+//    // for initializing x related arrays.
+//    final protected int X_RANGE = 2;
 
     public TimedBlockCollapsedGibbs() {
         this._wType = new HashMap<String, Integer>();
@@ -89,7 +89,7 @@ public class TimedBlockCollapsedGibbs {
         _thetadk = new double[trainData.size()][k];
         _phikw   = new double[k][_v];
         _phickw  = new double[_col][k][_v];
-        _testThetadk = new double[trainData.size()][k];
+        _testThetadk = new double[testData.size()][k];
 
         //for collecting samples after burn-in period
         List<double[][]> thetadkSample  = new ArrayList<double[][]>();
@@ -109,8 +109,8 @@ public class TimedBlockCollapsedGibbs {
         int[][] testXdi = initZX(testData, X_RANGE, rand);
 
         //do counting
-        countN(trainData, zdi, xdi);
-        countTestNdk(testData, testZdi, testXdi);
+        countN(trainData, zdi);
+        countTestNdk(testData, testZdi);
 
 
         //================================================================
@@ -118,19 +118,17 @@ public class TimedBlockCollapsedGibbs {
         //================================================================
         long startTime = System.nanoTime();
         for(int t = 1; t <= iterNum; t++) {
-            if (t % 10 == 0)
-                System.out.printf("%d-th iteration...\n", t);
+//            if (t % 10 == 0)
+//                System.out.printf("%d-th iteration...\n", t);
             int[] tempZXdi;
             for(int d = 0; d < trainData.size(); d++) {
                 String[] doc = trainData.get(d);
                 for(int i = 1; i < doc.length; i++) {
-                    excludeCnt(d, i, doc, xdi, zdi);
-//                    tempZdi = sampleZdi(d, i, xdi, doc);
-//                    tempXdi = sampleXdi(d, i, zdi, doc);
+                    excludeCnt(d, i, doc, zdi);
                     tempZXdi = sampleZXdi(d, i, doc);
                     zdi[d][i] = tempZXdi[1];
                     xdi[d][i] = tempZXdi[0];
-                    includeCnt(d, i, doc, xdi, zdi);
+                    includeCnt(d, i, doc, zdi);
                 }
             }
 
@@ -148,21 +146,19 @@ public class TimedBlockCollapsedGibbs {
             for(int d = 0; d < testData.size(); d++) {
                 String[] doc = testData.get(d);
                 for(int i = 1; i < doc.length; i++) {
-                    excludeTestCnt(d, i, doc, testXdi, testZdi);
-//                    tempZdi = sampleTestZdi(d, i, testXdi, doc);
-//                    tempXdi = sampleTestXdi(d, i, testZdi, doc);
+                    excludeTestCnt(d, i, testZdi);
                     tempZXdi = sampleZXdi(d, i, doc);
                     testZdi[d][i] = tempZXdi[1];
                     testXdi[d][i] = tempZXdi[0];
-                    includeTestCnt(d, i, doc, testXdi, testZdi);
+                    includeTestCnt(d, i, testZdi);
                 }
             }
 
             _testThetadk = estimateTheta(testData, _testThetadk, _testNdk, _testNds);
 
             //compute log-likelihood
-            logLikelihoodTrain.add(computeLogLikelihood(trainData, _thetadk, xdi));
-            logLikelihoodTest.add(computeLogLikelihood(testData, _testThetadk, testXdi));
+            logLikelihoodTrain.add(computeLogLikelihood(trainData, _thetadk));
+            logLikelihoodTest.add(computeLogLikelihood(testData, _testThetadk));
             timeStamp[t-1] = (System.nanoTime() - startTime) / 1000000;
         }
 
@@ -170,7 +166,7 @@ public class TimedBlockCollapsedGibbs {
         outputTime(timeStamp, outputFile);
     }
 
-    private double[][] copyArray2(double[][] org) {
+    protected double[][] copyArray2(double[][] org) {
         double[][] nAry = new double[org.length][];
         for(int i = 0; i < org.length; i++) {
             nAry[i] = Arrays.copyOf(org[i], org[i].length);
@@ -178,7 +174,7 @@ public class TimedBlockCollapsedGibbs {
         return nAry;
     }
 
-    private double[][][] copyArray3(double[][][] org) {
+    protected double[][][] copyArray3(double[][][] org) {
         double[][][] nAry = new double[org.length][][];
         for(int i = 0; i < org.length; i++) {
             nAry[i] = new double[org[i].length][];
@@ -189,7 +185,7 @@ public class TimedBlockCollapsedGibbs {
         return nAry;
     }
 
-    private double computeLogLikelihood(List<String[]> data, double[][] thetadk, int[][] xdi) {
+    protected double computeLogLikelihood(List<String[]> data, double[][] thetadk) {
         double logProb = 0.0;
         for(int d = 0; d < data.size(); d++) {
             String[] doc = data.get(d);
@@ -210,7 +206,7 @@ public class TimedBlockCollapsedGibbs {
      Sample Zdi and Xdi simultaneously.
      @Return Xdi, Zdi
     */
-    private int[] sampleZXdi(int d, int i, String[] doc) {
+    protected int[] sampleZXdi(int d, int i, String[] doc) {
         int c = Integer.valueOf(doc[0]);
         int w = _wType.get(doc[i]);
         double[][] prob = new double[X_RANGE][_k];
@@ -231,7 +227,7 @@ public class TimedBlockCollapsedGibbs {
         return weightedRandom2(prob);
     }
 
-    private int[] weightedRandom2(double[][] probs) {
+    protected int[] weightedRandom2(double[][] probs) {
         double tot = 0.0;
         for (double[] prob : probs) {
             for(double p : prob) {
@@ -254,83 +250,7 @@ public class TimedBlockCollapsedGibbs {
         return ans;
     }
 
-    private int sampleZdi(int d, int i, int[][] xdi, String[] doc) {
-        int c = Integer.valueOf(doc[0]);
-        int w = _wType.get(doc[i]);
-        double[] prob = new double[_k];
-        for(int kk = 0; kk < _k; kk++) {
-            if (xdi[d][i] == 0) {
-                prob[kk] = (_ndk[d][kk] + _alpha) * (_nkw[kk][w] + _beta) /
-                        ( (_nds[d] + _k * _alpha) * (_nks[kk] + _v * _beta) );
-            } else {
-                prob[kk] = (_ndk[d][kk] + _alpha) * (_nckw[c][kk][w] + _beta) /
-                        ( (_nds[d] + _k * _alpha) * (_ncks[c][kk]) + _v * _beta );
-            }
-        }
-        return weightedRandom(prob);
-    }
-
-    private int sampleTestZdi(int d, int i, int[][] xdi, String[] doc) {
-        int c = Integer.valueOf(doc[0]);
-        int w = _wType.get(doc[i]);
-        double[] prob = new double[_k];
-        for(int kk = 0; kk < _k; kk++) {
-            if (xdi[d][i] == 0) {
-                prob[kk] = (_testNdk[d][kk] + _alpha) * _phikw[kk][w] / (_testNds[d] + _k * _alpha);
-            } else {
-                prob[kk] = (_testNdk[d][kk] + _alpha) * _phickw[c][kk][w] / (_testNds[d] + _k * _alpha);
-            }
-        }
-        return weightedRandom(prob);
-    }
-
-    private int sampleXdi(int d, int i, int[][] zdi, String[] doc) {
-        int c = Integer.valueOf(doc[0]);
-        int w = _wType.get(doc[i]);
-        int k = zdi[d][i];
-        double wdi0 = (1 - _lambda) * (_nkw[k][w] + _beta) / (_nks[k] + _v * _beta);
-        double wdi1 = _lambda * (_nckw[c][k][w] + _beta) / (_ncks[c][k] + _v * _beta);
-
-        double pick = Math.random() * (wdi0 + wdi1);
-        if (pick <= wdi0) {
-            return 0;
-        } else {
-            return 1;
-        }
-    }
-
-    private int sampleTestXdi(int d, int i, int[][] zdi, String[] doc) {
-        int w = _wType.get(doc[i]);
-        int k = zdi[d][i];
-        int c = Integer.valueOf(doc[0]);
-        double wdi0 = (1 - _lambda) * _phikw[k][w];
-        double wdi1 = _lambda * _phickw[c][k][w];
-
-        double pick = Math.random() * (wdi0 + wdi1);
-        if (pick <= wdi0) {
-            return 0;
-        } else {
-            return 1;
-        }
-    }
-
-    private int weightedRandom(double[] prob) {
-        double tot = 0.0;
-        for (double p : prob) {
-            tot += p;
-        }
-        double pick = Math.random() * tot;
-        double cumu = 0.0;
-        for(int i = 0; i < prob.length; i++) {
-            cumu += prob[i];
-            if (pick <= cumu) {
-                return i;
-            }
-        }
-        return prob.length - 1;
-    }
-
-    private void excludeCnt(int d, int i, String[] doc, int[][] xdi, int[][] zdi) {
+    protected void excludeCnt(int d, int i, String[] doc, int[][] zdi) {
         int c = Integer.valueOf(doc[0]);
         int w = _wType.get(doc[i]);
         int k = zdi[d][i];
@@ -342,13 +262,13 @@ public class TimedBlockCollapsedGibbs {
         _ncks[c][k] -= 1;
     }
 
-    private void excludeTestCnt(int d, int i, String[] doc, int[][] xdi, int[][] zdi) {
+    protected void excludeTestCnt(int d, int i, int[][] zdi) {
         int k = zdi[d][i];
         _testNdk[d][k] -= 1;
         _testNds[d] -= 1;
     }
 
-    private void includeCnt(int d, int i, String[] doc, int[][] xdi, int[][] zdi) {
+    protected void includeCnt(int d, int i, String[] doc, int[][] zdi) {
         int c = Integer.valueOf(doc[0]);
         int w = _wType.get(doc[i]);
         int k = zdi[d][i];
@@ -360,13 +280,13 @@ public class TimedBlockCollapsedGibbs {
         _ncks[c][k] += 1;
     }
 
-    private void includeTestCnt(int d, int i, String[] doc, int[][] xdi, int[][] zdi) {
+    protected void includeTestCnt(int d, int i, int[][] zdi) {
         int k = zdi[d][i];
         _testNdk[d][k] += 1;
         _testNds[d] += 1;
     }
 
-    private double[][] estimateTheta(List<String[]> docs, double[][] theta, int[][] ndk, int[] nds) {
+    protected double[][] estimateTheta(List<String[]> docs, double[][] theta, int[][] ndk, int[] nds) {
         double div;
         for (int d = 0; d < docs.size(); d++) {
             div = nds[d] + _k * _alpha;
@@ -377,7 +297,7 @@ public class TimedBlockCollapsedGibbs {
         return theta;
     }
 
-    private void estimatePhi() {
+    protected void estimatePhi() {
         for(int kk = 0; kk < _k; kk++) {
             for(int w = 0; w < _v; w++) {
                 _phikw[kk][w] = (_nkw[kk][w] + _beta) / (_nks[kk] + _v * _beta);
@@ -388,7 +308,7 @@ public class TimedBlockCollapsedGibbs {
         }
     }
 
-    private void countN(List<String[]> data, int[][] zdi, int[][] xdi) {
+    protected void countN(List<String[]> data, int[][] zdi) {
         for(int d = 0; d < data.size(); d++) {
             String[] doc = data.get(d);
             int c = Integer.valueOf(doc[0]);
@@ -406,10 +326,11 @@ public class TimedBlockCollapsedGibbs {
         }
     }
 
-    private void countTestNdk(List<String[]> data, int[][] zdi, int[][] xdi) {
+    protected void countTestNdk(List<String[]> data, int[][] zdi) {
         for(int d = 0; d < data.size(); d++) {
             String[] doc = data.get(d);
 
+            _testNds[d] = doc.length - 1;
             for(int i = 1; i < doc.length; i++) {
                 _testNdk[d][zdi[d][i]] += 1;
             }
@@ -420,9 +341,8 @@ public class TimedBlockCollapsedGibbs {
      Initialize z_{d,i} value to randomly chosen values in {0, ..., k - 1}
      ..         x_{d,i} ...                                {0, 1}
      */
-    private int[][] initZX(List<String[]> data, int range, Random rand) {
+    protected int[][] initZX(List<String[]> data, int range, Random rand) {
         int[][] res = new int[data.size()][];
-        rand = new Random(0);
         for(int i = 0; i < data.size(); i++) {
             String[] s = data.get(i);
             res[i] = new int[s.length];
@@ -433,7 +353,7 @@ public class TimedBlockCollapsedGibbs {
         return res;
     }
 
-    private int countVocab(List<String[]> docs, int idx) {
+    protected int countVocab(List<String[]> docs, int idx) {
         for(String[] d : docs) {
             for(int i = 1; i < d.length; i++) {
                 if(!_wType.containsKey(d[i])){
@@ -449,7 +369,7 @@ public class TimedBlockCollapsedGibbs {
      Read data line by line and split the string into list of words.
      Find the total number of collection by looking at the first item in each string.
      */
-    private List<String[]> parseDoc(String file, boolean update) throws IOException {
+    protected List<String[]> parseDoc(String file, boolean update) throws IOException {
         List<String[]> data = new ArrayList<String[]>();
         Set<String> coll = new HashSet<String>();
         BufferedReader br = new BufferedReader(new FileReader(file));
@@ -481,7 +401,7 @@ public class TimedBlockCollapsedGibbs {
        outputFile.txt-trainll : contains the log-likelihoods on the training data for each iteration
        outputFile.txt-testll  : contains the log-likelihoods on the test data for each iteration
      */
-    private void outputData(String outputFile, List<double[][]> thetadk, List<double[][]> phikw, List<double[][][]> phickw, List<Double> llTrain, List<Double> llTest) throws IOException {
+    protected void outputData(String outputFile, List<double[][]> thetadk, List<double[][]> phikw, List<double[][][]> phickw, List<Double> llTrain, List<Double> llTest) throws IOException {
         //output theta
         String oTheta = outputFile + "-theta";
         outputTheta(thetadk, oTheta);
@@ -500,7 +420,7 @@ public class TimedBlockCollapsedGibbs {
     /*
      Output average theta for each document d and each topic k
      */
-    private void outputTheta(List<double[][]> thetadk, String file) throws IOException {
+    protected void outputTheta(List<double[][]> thetadk, String file) throws IOException {
         //initialize avgTheta
         double[][] first = thetadk.get(0);
         double[][] avgTheta = new double[first.length][];
@@ -542,7 +462,7 @@ public class TimedBlockCollapsedGibbs {
      Output average phi for each topic k and word w.
      Also output corpus-dependent parameters phi0 and phi1.
      */
-    private void outputPhis(List<double[][]> phikw, List<double[][][]> phickw, String file) throws IOException {
+    protected void outputPhis(List<double[][]> phikw, List<double[][][]> phickw, String file) throws IOException {
         //output phi
         outputPhi(phikw, file);
 
@@ -565,7 +485,7 @@ public class TimedBlockCollapsedGibbs {
     /*
      output average phi.
      */
-    private void outputPhi(List<double[][]> phi, String file) throws IOException {
+    protected void outputPhi(List<double[][]> phi, String file) throws IOException {
         //initialize avgPhi
         double[][] first = phi.get(0);
         double[][] avgPhi = new double[first.length][];
@@ -604,7 +524,7 @@ public class TimedBlockCollapsedGibbs {
         }
     }
 
-    private void outputLogLikelihood(List<Double> lldata, String file) throws IOException {
+    protected void outputLogLikelihood(List<Double> lldata, String file) throws IOException {
         try {
             StringBuilder sb = new StringBuilder();
             String line = "%.13e\n";
@@ -621,8 +541,7 @@ public class TimedBlockCollapsedGibbs {
         }
     }
 
-    private void outputTime(long[] timeStamp,  String file) throws IOException {
-        System.out.println("output time");
+    protected void outputTime(long[] timeStamp,  String file) throws IOException {
         String fileName = file + "-time";
 
         StringBuilder sb = new StringBuilder();
