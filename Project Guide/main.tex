@@ -1,0 +1,51 @@
+\documentclass[letterpaper, 11pt]{article}
+\usepackage{latexsym}
+\usepackage{amssymb}
+\usepackage{times}
+\usepackage{amsmath,amsfonts,amsthm}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage[letterpaper, margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{geometry}
+\geometry{a4paper, top=20mm}
+
+\makeatletter
+\def\BState{\State\hskip-\ALG@thistlm}
+\makeatother
+
+\title{Machine Learning: Data to Models \\Final Project Proposal}
+\author{Qun Gao, JHED ID qgao6: \\Li-Yi Lin, JHED ID: llin34}
+\date{}
+
+\begin{document}
+
+\maketitle
+\begin{enumerate}%{\Alph{enumi}}
+\item Overall Goal\\
+We are going to use taxi trip history data to predict the destination for each ride according to the pick-up location, time, date, and etc. %By doing so, we hope it can help enhance riders' experience in taking taxi.
+
+\item Data Source\\
+NYC Taxi and Limousine Commission (TLC) trip record dataset,\\
+http://www.nyc.gov/html/tlc/html/about/trip\_record\_data.shtml
+
+\item A brief description of approach\\
+We may use Bayesian statistics to construct a model and use MAP to estimate related parameters. According to the reference paper, we may need to use Neural Network method although we don't know that now.
+
+
+\item Team Mates\\
+	Qun Gao\\
+	Li-Yi Lin
+\item Reference for Related Work
+	\begin{enumerate}
+	\item Making a Bayesian Model to Infer Uber Rider Destinations.\\
+		https://newsroom.uber.com/inferring-uber-rider-destinations
+	\item Artificial Neural Networks Applied to Taxi Destination Prediction,\\
+    http://arxiv.org/abs/1508.00021
+    \item A Framework for Predicting Trajectories Using Global and Local Information.\\
+    http://www-users.cs.umn.edu/~gini/papers/groves14cf.pdf
+
+	\end{enumerate}
+\end{enumerate}
+
+\end{document}

@@ -115,7 +115,7 @@ public class CollapsedGibbs {
         //================================================================
         for(int t = 1; t <= iterNum; t++) {
 //            if (t % 10 == 0)
-                System.out.printf("%d-th iteration -----------------\n", t);
+//                System.out.printf("%d-th iteration -----------------\n", t);
 
             for(int d = 0; d < trainData.size(); d++) {
                 String[] doc = trainData.get(d);
@@ -127,7 +127,7 @@ public class CollapsedGibbs {
                 }
             }
 
-            _thetadk = estimateTheta(trainData, _thetadk, _ndk, _nds); //TODO: start check here
+            _thetadk = estimateTheta(trainData, _thetadk, _ndk, _nds);
             estimatePhi();
 
             //after burn-in period, collect samples
@@ -159,6 +159,7 @@ public class CollapsedGibbs {
 
     }
 
+    // Copy 2-D array
     protected double[][] copyArray2(double[][] org) {
         double[][] nAry = new double[org.length][];
         for(int i = 0; i < org.length; i++) {
@@ -167,6 +168,7 @@ public class CollapsedGibbs {
         return nAry;
     }
 
+    // copy 3-D array
     protected double[][][] copyArray3(double[][][] org) {
         double[][][] nAry = new double[org.length][][];
         for(int i = 0; i < org.length; i++) {
@@ -178,6 +180,7 @@ public class CollapsedGibbs {
         return nAry;
     }
 
+    // compute log likelihood using estimated parameter phi and document-dependent theta
     protected double computeLogLikelihood(List<String[]> data, double[][] thetadk) {
         double logProb = 0.0;
         for(int d = 0; d < data.size(); d++) {
@@ -192,10 +195,14 @@ public class CollapsedGibbs {
                 logProb += Math.log(thetaProb);
             }
         }
-        System.out.println(logProb);
         return logProb;
     }
 
+    /*
+     Sample Z_di.
+     First calculate the probabilities for each Z_di. Then randomly choose a new assignment according to
+     the probabilities.
+     */
     protected int sampleZdi(int d, int i, int[][] xdi, String[] doc) {
         int c = Integer.valueOf(doc[0]);
         int w = _wType.get(doc[i]);
@@ -214,6 +221,11 @@ public class CollapsedGibbs {
         return weightedRandom(prob);
     }
 
+    /*
+     Sample test data Z_di.
+     First calculate the probabilities for each Z_di using the estimated parameter phi.
+     Then randomly choose a new assignment according to the probabilities.
+    */
     protected int sampleTestZdi(int d, int i, int[][] xdi, String[] doc) {
         int c = Integer.valueOf(doc[0]);
         int w = _wType.get(doc[i]);
@@ -222,13 +234,14 @@ public class CollapsedGibbs {
             for (int kk = 0; kk < _k; kk++) {
                 prob[kk] = (_testNdk[d][kk] + _alpha) * _phikw[kk][w] / (_testNds[d] + _k * _alpha);
             }
-        }else {
+        } else {
             for (int kk = 0; kk < _k; kk++) {
                 prob[kk] = (_testNdk[d][kk] + _alpha) * _phickw[c][kk][w] / (_testNds[d] + _k * _alpha);
             }
         }
         return weightedRandom(prob);
     }
+
 
     protected int sampleXdi(int d, int i, int[][] zdi, String[] doc) {
         int c = Integer.valueOf(doc[0]);
@@ -334,6 +347,7 @@ public class CollapsedGibbs {
         }
     }
 
+    // Do the initial counting for training data.
     protected void countN(List<String[]> data, int[][] zdi) {
         for(int d = 0; d < data.size(); d++) {
             String[] doc = data.get(d);
@@ -352,6 +366,7 @@ public class CollapsedGibbs {
         }
     }
 
+    // Do the initial counting for test data.
     protected void countTestNdk(List<String[]> data, int[][] zdi) {
         for(int d = 0; d < data.size(); d++) {
             String[] doc = data.get(d);
@@ -486,7 +501,6 @@ public class CollapsedGibbs {
         }
     }
 
-
     /*
      Output average phi for each topic k and word w.
      Also output corpus-dependent parameters phi0 and phi1.
@@ -522,14 +536,19 @@ public class CollapsedGibbs {
             avgPhi[d] = new double[first[d].length];
         }
 
+        double[] totProbK = new double[_k];
         //sum over all phi
         for(double[][] ph : phi) {
             for(int k = 0; k < ph.length; k++) {
                 for(int w = 0; w < ph[k].length; w++) {
                     avgPhi[k][w] += ph[k][w];
+                    totProbK[k]  += ph[k][w];
                 }
             }
         }
+
+        //normalize
+
 
         //write to file
         try {
@@ -539,7 +558,7 @@ public class CollapsedGibbs {
                 sb.append(w.getKey());
                 sb.append(" ");
                 for(int k = 0; k < _k; k++) {
-                    sb.append(String.format(line, avgPhi[k][w.getValue()] / avgPhi.length));
+                    sb.append(String.format(line, avgPhi[k][w.getValue()] / ( avgPhi.length * totProbK[k] ) ));
                 }
                 sb.append("\n");
             }
