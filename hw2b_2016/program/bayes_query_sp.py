@@ -133,7 +133,10 @@ class Edge(object):
     def divideMu(self, msg):
         newMsg = {}
         for k in msg:
-            newMsg[k] = msg[k] - self.mu[k]  # TODO: only multiply those in msg?
+            if k not in self.mu:
+                newMsg[k] = msg[k]
+            else:
+                newMsg[k] = msg[k] - self.mu[k]
         return newMsg
 
     def getSepset(self):
